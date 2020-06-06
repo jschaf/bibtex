@@ -1,13 +1,14 @@
 package scanner
 
 import (
+	gotok "go/token"
 	"path/filepath"
 	"testing"
 
 	"github.com/jschaf/b2/pkg/bibtex/token"
 )
 
-var fset = token.NewFileSet()
+var fset = gotok.NewFileSet()
 
 type tokClass = int
 
@@ -80,7 +81,7 @@ func newlineCount(s string) int {
 	return n
 }
 
-func checkPos(t *testing.T, lit string, p token.Pos, expected token.Position) {
+func checkPos(t *testing.T, lit string, p gotok.Pos, expected gotok.Position) {
 	pos := fset.Position(p)
 	// Check cleaned filenames so that we don't have to worry about
 	// different os.PathSeparator values.
@@ -103,7 +104,7 @@ func TestScan(t *testing.T) {
 	whitespaceLineCount := newlineCount(whitespace)
 
 	// error handler
-	eh := func(_ token.Position, msg string) {
+	eh := func(_ gotok.Position, msg string) {
 		t.Errorf("error handler called (msg = %s)", msg)
 	}
 
@@ -112,7 +113,7 @@ func TestScan(t *testing.T) {
 	s.Init(fset.AddFile("", fset.Base(), len(source)), source, eh, ScanComments)
 
 	// set up expected position
-	epos := token.Position{
+	epos := gotok.Position{
 		Filename: "",
 		Offset:   0,
 		Line:     1,
@@ -192,7 +193,7 @@ func TestScanErrors(t *testing.T) {
 	type errorCollector struct {
 		cnt int            // number of errors encountered
 		msg string         // last error message encountered
-		pos token.Position // last error position encountered
+		pos gotok.Position // last error position encountered
 	}
 
 	tests := []struct {
@@ -214,12 +215,12 @@ func TestScanErrors(t *testing.T) {
 		t.Run(e.src, func(t *testing.T) {
 			var s Scanner
 			var h errorCollector
-			eh := func(pos token.Position, msg string) {
+			eh := func(pos gotok.Position, msg string) {
 				h.cnt++
 				h.msg = msg
 				h.pos = pos
 			}
-			s.Init(token.NewFile("", len(e.src)), []byte(e.src), eh, ScanComments)
+			s.Init(fset.AddFile("", fset.Base(), len(e.src)), []byte(e.src), eh, ScanComments)
 			_, tok0, lit0 := s.Scan()
 			if tok0 != e.tok {
 				t.Errorf("got %s, expected %s", tok0, e.tok)

@@ -5,6 +5,7 @@ package scanner
 
 import (
 	"fmt"
+	gotok "go/token"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -17,14 +18,14 @@ import (
 // encountered and a handler was installed, the handler is called with a
 // position and an error message. The position points to the beginning of
 // the offending token.
-type ErrorHandler func(pos token.Position, msg string)
+type ErrorHandler func(pos gotok.Position, msg string)
 
 // A Scanner holds the scanner's internal state while processing
 // a given text. It can be allocated as part of another data
 // structure but must be initialized via Init before use.
 type Scanner struct {
 	// immutable state
-	file *token.File  // source file handle
+	file *gotok.File  // source file handle
 	dir  string       // directory portion of file.Name()
 	src  []byte       // source
 	err  ErrorHandler // error reporting; or nil
@@ -115,7 +116,7 @@ const (
 //
 // Note that Init may call err if there is an error in the first character
 // of the file.
-func (s *Scanner) Init(file *token.File, src []byte, err ErrorHandler, mode Mode) {
+func (s *Scanner) Init(file *gotok.File, src []byte, err ErrorHandler, mode Mode) {
 	// Explicitly initialize all fields since a scanner may be reused.
 	if file.Size() != len(src) {
 		panic(fmt.Sprintf("file size (%d) does not match src len (%d)", file.Size(), len(src)))
@@ -250,7 +251,7 @@ func (s *Scanner) scanTexComment() string {
 //
 // Scan adds line information to the file with Init. Token positions are
 // relative to the file.
-func (s *Scanner) Scan() (pos token.Pos, tok token.Token, lit string) {
+func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
 	s.skipWhitespace()
 
 	pos = s.file.Pos(s.offset)
