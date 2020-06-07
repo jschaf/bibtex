@@ -20,10 +20,10 @@ const (
 	TexComment // % foo
 
 	commandBegin
-	Abbrev   // @STRING { foo = "bar" }
-	Comment  // @COMMENT { }
-	Preamble // @PREAMBLE { "\newcommand{\noopsort}[1]{}" }
-	Entry    // @article, @book
+	Abbrev   // @STRING, @string
+	Comment  // @COMMENT, @comment
+	Preamble // @PREAMBLE, @pReAmble
+	Entry    // @article, @book, etc
 	commandEnd
 
 	literalBegin

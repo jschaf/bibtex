@@ -156,10 +156,6 @@ func isLetter(ch rune) bool {
 	return 'a' <= lower(ch) && lower(ch) <= 'z' || ch == '_' || ch >= utf8.RuneSelf && unicode.IsLetter(ch)
 }
 
-func isDigit(ch rune) bool {
-	return isDecimal(ch) || ch >= utf8.RuneSelf && unicode.IsDigit(ch)
-}
-
 func (s *Scanner) scanCommand() string {
 	offs := s.offset - 1 // Already consumed @
 	s.next()
@@ -279,6 +275,8 @@ func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
 				tok = token.Comment
 			case "@string":
 				tok = token.Abbrev
+			case "@preamble":
+				tok = token.Preamble
 			default:
 				tok = token.Entry
 			}

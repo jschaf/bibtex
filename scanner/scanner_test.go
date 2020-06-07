@@ -43,6 +43,8 @@ var tokens = [...]elt{
 	{token.Comment, "@comMent", command},
 	{token.Abbrev, "@String", command},
 	{token.Abbrev, "@sTRING", command},
+	{token.Preamble, "@preamble", command},
+	{token.Preamble, "@PREAMBLE", command},
 	{token.Entry, "@article", command},
 	{token.Entry, "@ARTICLE", command},
 	// Literals
@@ -153,7 +155,7 @@ func TestScan(t *testing.T) {
 			// check literal
 			elit := ""
 			switch e.tok {
-			case token.Comment, token.Abbrev, token.Entry:
+			case token.Comment, token.Abbrev, token.Entry, token.Preamble:
 				elit = e.lit
 			case token.TexComment:
 				elit = e.lit
