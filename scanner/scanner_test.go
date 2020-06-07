@@ -45,21 +45,26 @@ var tokens = [...]elt{
 	{token.Abbrev, "@sTRING", command},
 	{token.Preamble, "@preamble", command},
 	{token.Preamble, "@PREAMBLE", command},
-	{token.Entry, "@article", command},
-	{token.Entry, "@ARTICLE", command},
+	{token.BibEntry, "@article", command},
+	{token.BibEntry, "@ARTICLE", command},
 	// Literals
 	{token.String, `"foo"`, literal},
 	{token.String, `""`, literal},
 	{token.String, "\"\n\"", literal},
 	{token.String, `"{"}"`, literal},
 	{token.String, `"aa{"}bb{"}"`, literal},
-	{token.Assign, `=`, operator}, // Assign must precede brace string
-	{token.BraceString, `{foo}`, literal},
 	{token.Assign, `=`, operator},
-	{token.BraceString, `{{f}oo}`, literal},
+	{token.BraceString, `{foo}`, literal}, // Assign must precede brace string
+	{token.Assign, `=`, operator},
+	{token.BraceString, `{{f}oo}`, literal}, // Assign must precede brace string
 	{token.LBrace, `{`, operator},
 	{token.RBrace, `}`, operator},
 	{token.TexComment, "% foo\n", special},
+	{token.LBrace, `{`, operator},
+	{token.BraceString, `{{f}oo}`, literal}, // LBrace must precede brace string
+	{token.Ident, "qux", literal},
+	{token.Ident, "qux_2", literal},
+	{token.Ident, "q!$&*+-./:;<>?[]^_`|", literal},
 }
 
 const whitespace = "  \t  \n\n\n" // to separate tokens
@@ -155,7 +160,10 @@ func TestScan(t *testing.T) {
 			// check literal
 			elit := ""
 			switch e.tok {
-			case token.Comment, token.Abbrev, token.Entry, token.Preamble:
+			case token.BraceString, token.String:
+				elit = e.lit
+				elit = e.lit[1 : len(elit)-1] // Remove delimiters
+			case token.Comment, token.Abbrev, token.BibEntry, token.Preamble:
 				elit = e.lit
 			case token.TexComment:
 				elit = e.lit
@@ -208,8 +216,8 @@ func TestScanErrors(t *testing.T) {
 		{`#`, token.Illegal, 0, "", "illegal character U+0023 '#'"},
 		{`'`, token.Illegal, 0, `'`, "illegal character U+0027 '''"},
 		// Valid
-		{`""`, token.String, 0, `""`, ""},
-		{`"abc"`, token.String, 0, `"abc"`, ""},
+		{`""`, token.String, 0, ``, ""},
+		{`"abc"`, token.String, 0, `abc`, ""},
 		{`,`, token.Comma, 0, ``, ""},
 		{`456`, token.Number, 0, `456`, ""},
 	}

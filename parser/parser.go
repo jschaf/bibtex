@@ -4,6 +4,7 @@ import (
 	"fmt"
 	goscan "go/scanner"
 	gotok "go/token"
+	"strings"
 
 	"github.com/jschaf/b2/pkg/bibtex/ast"
 	"github.com/jschaf/b2/pkg/bibtex/scanner"
@@ -262,6 +263,20 @@ func (p *parser) expect(tok token.Token) gotok.Pos {
 	return pos
 }
 
+func (p *parser) expectComma() {
+	if p.tok == token.RBrace || p.tok == token.RParen {
+		// Comma is optional before a closing ')' or '}'
+		return
+	}
+	switch p.tok {
+	case token.Comma:
+		p.next()
+	default:
+		p.errorExpected(p.pos, "','")
+		p.advance(stmtStart)
+	}
+}
+
 func assert(cond bool, msg string) {
 	if !cond {
 		panic("bibtex/parser internal error: " + msg)
@@ -298,28 +313,98 @@ func (p *parser) advance(to map[token.Token]bool) {
 	}
 }
 
-var tagStart = map[token.Token]bool{
-	token.Ident: true,
+var stmtStart = map[token.Token]bool{
+	token.Abbrev:   true,
+	token.Comment:  true,
+	token.Preamble: true,
+	token.BibEntry: true,
+	token.Ident:    true,
 }
 
-func (p *parser) parseExpr() ast.Expr {
-	pos := p.pos
+var entryStart = map[token.Token]bool{
+	token.Abbrev:   true,
+	token.Comment:  true,
+	token.Preamble: true,
+	token.BibEntry: true,
+}
+
+func (p *parser) parseBasicLit() (l *ast.BasicLit) {
 	switch {
 	case p.tok.IsLiteral():
-		return &ast.BasicLit{
+		l = &ast.BasicLit{
 			ValuePos: p.pos,
 			Kind:     p.tok,
 			Value:    p.lit,
 		}
-	case p.tok == token.LBrace:
+	default:
+		p.errorExpected(p.pos, "literal: number or string")
+	}
+	p.next()
+	return
+}
+
+func (p *parser) parseExpr() (x ast.Expr) {
+	pos := p.pos
+	switch {
+	case p.tok.IsLiteral():
+		x = p.parseBasicLit()
+		if x == nil {
+			x = &ast.BadExpr{
+				From: pos,
+				To:   p.pos,
+			}
+		}
 
 	default:
 		p.errorExpected(p.pos, "literal: number or string (\"foo\" or {foo})")
-		p.next() // make progress
-		return &ast.BadExpr{
+		x = &ast.BadExpr{
 			From: pos,
 			To:   p.pos,
 		}
+		p.next() // make progress
+	}
+	return
+}
+
+func (p *parser) parseIdent() *ast.Ident {
+	pos := p.pos
+	name := "_"
+	isNum := false
+	switch p.tok {
+	// Bibtex cite keys may be all numbers, but tag keys may not. Allow either
+	// here and check one level up.
+	case token.Ident:
+		name = p.lit
+		p.next()
+	case token.Number:
+		name = p.lit
+		p.next()
+		isNum = true
+	default:
+		p.expect(token.Ident) // use expect() error handling
+	}
+	return &ast.Ident{NamePos: pos, Name: name, IsNumeric: isNum}
+}
+
+func (p *parser) parseTagStmt() *ast.TagStmt {
+	if p.trace {
+		defer un(trace(p, "TagStmt"))
+	}
+	doc := p.leadComment
+	key := p.parseIdent()
+	if p.tok == token.Assign {
+		p.next()
+	} else {
+		p.expect(token.Assign) // use expect() error handling
+	}
+	val := p.parseExpr()
+	p.expectComma()
+	return &ast.TagStmt{
+		Doc:     doc,
+		NamePos: key.Pos(),
+		Name:    strings.ToLower(key.Name),
+		RawName: key.Name,
+		Value:   val,
 	}
 }
 
@@ -330,7 +415,7 @@ func (p *parser) parsePreambleDecl() *ast.PreambleDecl {
 	doc := p.leadComment
 	pos := p.expect(token.Preamble)
 	p.expect(token.LBrace)
-	text := p.parseExpr()
+	text := p.parseBasicLit()
 	rBrace := p.expect(token.RBrace)
 	return &ast.PreambleDecl{
 		Doc:    doc,
@@ -340,7 +425,81 @@ func (p *parser) parsePreambleDecl() *ast.PreambleDecl {
 	}
 }
 
-func (p *parser) parseDecl(sync map[token.Token]bool) ast.Decl {
+func (p *parser) parseAbbrevDecl() *ast.AbbrevDecl {
+	if p.trace {
+		defer un(trace(p, "AbbrevDecl"))
+	}
+	doc := p.leadComment
+	pos := p.expect(token.Abbrev)
+	p.expect(token.LBrace)
+	tag := p.parseTagStmt()
+	rBrace := p.expect(token.RBrace)
+	return &ast.AbbrevDecl{
+		Doc:    doc,
+		Entry:  pos,
+		Tag:    tag,
+		RBrace: rBrace,
+	}
+}
+
+func (p *parser) parseBibDecl() *ast.BibDecl {
+	if p.trace {
+		defer un(trace(p, "BibDecl"))
+	}
+	doc := p.leadComment
+	pos := p.expect(token.BibEntry)
+	keys := make([]*ast.Ident, 0, 2)
+	tags := make([]*ast.TagStmt, 0, 8)
+	p.expect(token.LBrace)
+	// A bibtex entry cite key may be all numbers but a tag key cannot.
+	for p.tok == token.Ident || p.tok == token.Number {
+		doc := p.leadComment
+		key := p.parseIdent() // parses both ident and number
+
+		switch p.tok {
+		case token.Assign:
+			// It's a tag.
+			if !isValidTagName(key) {
+				p.error(key.Pos(), "tag keys must not start with a number")
+			}
+			p.next()
+			val := p.parseExpr()
+			tag := &ast.TagStmt{
+				Doc:     doc,
+				NamePos: key.Pos(),
+				Name:    strings.ToLower(key.Name),
+				RawName: key.Name,
+				Value:   val,
+			}
+			tags = append(tags, tag)
+		}
+		switch p.tok {
+		case token.Comma:
+			// It's a cite key.
+			p.next()
+			keys = append(keys, key)
+			continue
+		}
+	}
+	rBrace := p.expect(token.RBrace)
+	return &ast.BibDecl{
+		Doc:    doc,
+		Entry:  pos,
+		Keys:   keys,
+		Tags:   tags,
+		RBrace: rBrace,
+	}
+}
+
+// isValidTagName returns true if the ident is a valid tag name.
+// Uses rules according to biber:
+// https://metacpan.org/pod/release/AMBS/Text-BibTeX-0.66/btparse/doc/bt_language.pod
+func isValidTagName(key *ast.Ident) bool {
+	ch := key.Name[0]
+	return ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z')
+}
+
+func (p *parser) parseDecl() ast.Decl {
 	if p.trace {
 		defer un(trace(p, "Declaration"))
 	}
@@ -348,10 +507,14 @@ func (p *parser) parseDecl(sync map[token.Token]bool) ast.Decl {
 	switch p.tok {
 	case token.Preamble:
 		return p.parsePreambleDecl()
+	case token.Abbrev:
+		return p.parseAbbrevDecl()
+	case token.BibEntry:
+		return p.parseBibDecl()
 	default:
 		pos := p.pos
 		p.errorExpected(pos, "entry")
-		p.advance(sync)
+		p.advance(entryStart)
 		return &ast.BadDecl{
 			From: pos,
 			To:   p.pos,
@@ -380,7 +543,7 @@ func (p *parser) parseFile() *ast.File {
 	p.pkgScope = p.topScope
 	var decls []ast.Decl
 	for p.tok != token.EOF {
-		decls = append(decls, p.parseDecl(tagStart))
+		decls = append(decls, p.parseDecl())
 	}
 	p.closeScope()
 	assert(p.topScope == nil, "unbalanced scopes")

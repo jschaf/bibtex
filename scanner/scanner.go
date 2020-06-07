@@ -156,6 +156,36 @@ func isLetter(ch rune) bool {
 	return 'a' <= lower(ch) && lower(ch) <= 'z' || ch == '_' || ch >= utf8.RuneSelf && unicode.IsLetter(ch)
 }
 
+// isName returns true if the char is a valid bibtex cite char.
+// Taken from the btparse docs:
+// https://metacpan.org/pod/release/AMBS/Text-BibTeX-0.66/btparse/doc/bt_language.pod
+// Includes letters, digits, underscores, hyphens and the following:
+//     ! $ & * + - . / : ; < > ? [ ] ^ _ ` |
+func isName(ch rune) bool {
+	return ('a' <= ch && ch <= 'z') ||
+		('A' <= ch && ch <= 'Z') ||
+		('0' <= ch && ch <= '9') ||
+		ch == '_' ||
+		ch == '-' ||
+		ch == '/' ||
+		ch == '!' ||
+		ch == '$' ||
+		ch == '&' ||
+		ch == '*' ||
+		ch == '+' ||
+		ch == '.' ||
+		ch == ':' ||
+		ch == ';' ||
+		ch == '<' ||
+		ch == '>' ||
+		ch == '?' ||
+		ch == '[' ||
+		ch == ']' ||
+		ch == '^' ||
+		ch == '`' ||
+		ch == '|'
+}
+
 func (s *Scanner) scanCommand() string {
 	offs := s.offset - 1 // Already consumed @
 	s.next()
@@ -169,9 +199,17 @@ func (s *Scanner) scanCommand() string {
 	return string(s.src[offs:s.offset])
 }
 
+func (s *Scanner) scanIdent() string {
+	offs := s.offset
+	for isName(s.ch) {
+		s.next()
+	}
+	return string(s.src[offs:s.offset])
+}
+
 // scanString parses an bibtex string delimited by double quotes.
 func (s *Scanner) scanString() string {
-	offs := s.offset - 1 // opening '"' already consumed
+	offs := s.offset
 
 	for {
 		ch := s.ch
@@ -187,11 +225,11 @@ func (s *Scanner) scanString() string {
 			s.scanBraceString()
 		}
 	}
-	return string(s.src[offs:s.offset])
+	return string(s.src[offs : s.offset-1])
 }
 
 func (s *Scanner) scanNumber() string {
-	offs := s.offset - 1 // already scanned first digit
+	offs := s.offset
 	for isDecimal(s.ch) {
 		s.next()
 	}
@@ -200,7 +238,7 @@ func (s *Scanner) scanNumber() string {
 
 // scanBraceString parses an bibtex string delimited by braces.
 func (s *Scanner) scanBraceString() string {
-	offs := s.offset - 1 // opening '{' already consumed
+	offs := s.offset
 
 	for {
 		ch := s.ch
@@ -217,7 +255,7 @@ func (s *Scanner) scanBraceString() string {
 			s.scanBraceString()
 		}
 	}
-	return string(s.src[offs:s.offset])
+	return string(s.src[offs : s.offset-1])
 }
 
 func (s *Scanner) scanTexComment() string {
@@ -253,14 +291,18 @@ func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
 	pos = s.file.Pos(s.offset)
 
 	switch ch := s.ch; {
+	case isDecimal(ch):
+		tok = token.Number
+		lit = s.scanNumber()
+
+	case isName(ch):
+		tok = token.Ident
+		lit = s.scanIdent()
 	default:
 		s.next() // always make progress
 		switch ch {
 		case -1:
 			tok = token.EOF
-		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			tok = token.Number
-			lit = s.scanNumber()
 		case '"':
 			tok = token.String
 			lit = s.scanString()
@@ -278,10 +320,14 @@ func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
 			case "@preamble":
 				tok = token.Preamble
 			default:
-				tok = token.Entry
+				tok = token.BibEntry
 			}
 		case '{':
-			if s.prev == token.Assign {
+			// Use a heuristic to determine whether this brace is for declaration or
+			// a brace string. If preceded by '=', it's a string for a tag. If
+			// preceded by an LBrace, it's a value in a block like:
+			//   @preamble { {foo} }
+			if s.prev == token.Assign || s.prev == token.LBrace {
 				tok = token.BraceString
 				lit = s.scanBraceString()
 			} else {

@@ -23,7 +23,7 @@ const (
 	Abbrev   // @STRING, @string
 	Comment  // @COMMENT, @comment
 	Preamble // @PREAMBLE, @pReAmble
-	Entry    // @article, @book, etc
+	BibEntry // @article, @book, etc
 	commandEnd
 
 	literalBegin
@@ -53,7 +53,7 @@ var tokens = [...]string{
 	Abbrev:      "Abbrev",
 	Comment:     "Comment",
 	Preamble:    "Preamble",
-	Entry:       "Entry",
+	BibEntry:    "BibEntry",
 	Ident:       "Ident",
 	String:      "String",
 	BraceString: "BraceString",

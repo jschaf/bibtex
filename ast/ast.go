@@ -65,11 +65,13 @@ type (
 		From, To gotok.Pos
 	}
 
-	// An Ident node represents an identifier like a bibtex key or crossref.
+	// An Ident node represents an identifier like a bibtex citation key or tag
+	// key.
 	Ident struct {
-		NamePos gotok.Pos // identifier position
-		Name    string    // identifier name
-		Obj     *Object   // denoted object; or nil
+		NamePos   gotok.Pos // identifier position
+		Name      string    // identifier name
+		IsNumeric bool      // true if the name consists solely of digits
+		Obj       *Object   // denoted object; or nil
 	}
 
 	// A BasicLit noe represents literals of basic type.
@@ -107,10 +109,11 @@ type (
 	// An TagStmt node represents a tag in an BibDecl or AbbrevDecl, i.e.
 	// author = "foo".
 	TagStmt struct {
-		NamePos gotok.Pos // identifier position
-		Name    string    // identifier name, normalized with lowercase
-		RawName string    // identifier name as it appeared in source
-		Value   *BasicLit // denoted literal
+		Doc     *TexCommentGroup // associated documentation; or nil
+		NamePos gotok.Pos        // identifier position
+		Name    string           // identifier name, normalized with lowercase
+		RawName string           // identifier name as it appeared in source
+		Value   Expr             // denoted expression
 	}
 )
 
@@ -136,7 +139,8 @@ type (
 	// An AbbrevDecl node represents a bibtex abbreviation, like:
 	//   @STRING { foo = "bar" }
 	AbbrevDecl struct {
-		Entry  gotok.Pos // position of the "@STRING" token
+		Doc    *TexCommentGroup // associated documentation; or nil
+		Entry  gotok.Pos        // position of the "@STRING" token
 		Tag    *TagStmt
 		RBrace gotok.Pos // position of the closing right brace token: "}".
 	}
@@ -144,8 +148,9 @@ type (
 	// An BibDecl node represents a bibtex entry, like:
 	//   @article { author = "bar" }
 	BibDecl struct {
-		Entry  gotok.Pos // position of the start token, e.g. "@article"
-		Keys   []Ident
+		Doc    *TexCommentGroup // associated documentation; or nil
+		Entry  gotok.Pos        // position of the start token, e.g. "@article"
+		Keys   []*Ident
 		Tags   []*TagStmt // all tags in the declaration
 		RBrace gotok.Pos  // position of the closing right brace token: "}".
 	}
@@ -155,7 +160,7 @@ type (
 	PreambleDecl struct {
 		Doc    *TexCommentGroup // associated documentation; or nil
 		Entry  gotok.Pos        // position of the "@PREAMBLE" token
-		Text   Expr             // The content of the preamble node
+		Text   *BasicLit        // The content of the preamble node
 		RBrace gotok.Pos        // position of the closing right brace token: "}"
 	}
 )
