@@ -3,6 +3,8 @@ package parser
 import (
 	"fmt"
 	gotok "go/token"
+	"io/ioutil"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -10,6 +12,62 @@ import (
 	"github.com/jschaf/b2/pkg/bibtex/ast"
 	"github.com/jschaf/b2/pkg/bibtex/token"
 )
+
+func cmpExpr() cmp.Option {
+	return cmp.Transformer("expr_name", func(x ast.Expr) string {
+		return exprString(x)
+	})
+}
+
+func cmpIdentName() cmp.Option {
+	return cmp.Transformer("ident_name", func(x *ast.Ident) string {
+		return x.Name
+	})
+}
+
+func exprString(x ast.Expr) string {
+	switch v := x.(type) {
+	case *ast.Ident:
+		return "Ident(" + v.Name + ")"
+	case *ast.BasicLit:
+		return v.Kind.String() + "(" + v.Value + ")"
+	case *ast.ConcatExpr:
+		return exprString(v.X) + " # " + exprString(v.Y)
+	default:
+		return fmt.Sprintf("UnknownExpr(%v)", v)
+	}
+}
+
+func concat(x, y ast.Expr) ast.Expr {
+	return &ast.ConcatExpr{X: x, Y: y}
+}
+
+func braceStr(s string) ast.Expr {
+	return &ast.BasicLit{
+		Kind:  token.BraceString,
+		Value: s,
+	}
+}
+
+func ident(s string) ast.Expr {
+	return &ast.Ident{
+		Name: s,
+		Obj:  nil,
+	}
+}
+
+func litStr(s string) ast.Expr {
+	return &ast.BasicLit{
+		Kind:  token.String,
+		Value: s,
+	}
+}
+
+func cmpTagEntry() cmp.Option {
+	return cmp.Transformer("tag_entry", func(t *ast.TagStmt) string {
+		return t.RawName + " = " + exprString(t.Value)
+	})
+}
 
 var validFiles = []string{
 	"testdata/vldb.bib",
@@ -24,15 +82,32 @@ func TestParseFile_validFiles(t *testing.T) {
 	}
 }
 
+func BenchmarkParseFile_vldb(b *testing.B) {
+	b.StopTimer()
+	f, err := ioutil.ReadFile("testdata/vldb.bib")
+	if err != nil {
+		b.Fatalf("read file: %s", err.Error())
+	}
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		_, err := ParseFile(gotok.NewFileSet(), "", f, 0)
+		if err != nil {
+			b.Fatalf(err.Error())
+		}
+	}
+}
+
 func TestParseFile_PreambleDecl(t *testing.T) {
 	tests := []struct {
 		src  string
-		tok  token.Token
-		want string
+		want ast.Expr
 	}{
-		{"@PREAMBLE { {foo} }", token.BraceString, "foo"},
-		{`@PREAMBLE { "foo" }`, token.String, "foo"},
-		{`@preamble { "foo" }`, token.String, "foo"},
+		{"@PREAMBLE { {foo} }", braceStr("foo")},
+		{`@PREAMBLE { "foo" }`, litStr("foo")},
+		{`@preamble { "foo" }`, litStr("foo")},
+		{`@preamble { "foo" # "bar" }`, concat(litStr("foo"), litStr("bar"))},
+		{`@preamble { "foo" # "bar" # "qux" }`, concat(litStr("foo"), concat(litStr("bar"), litStr("qux")))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -41,12 +116,10 @@ func TestParseFile_PreambleDecl(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			txt := f.Entries[0].(*ast.PreambleDecl).Text
-			if txt.Value != tt.want {
-				t.Errorf("PreambleDecl value: got %s; want %s", txt.Value, tt.want)
-			}
-			if txt.Kind != tt.tok {
-				t.Errorf("PreambleDecl kind: got %s; want %s", txt.Kind, tt.tok)
+			got := f.Entries[0].(*ast.PreambleDecl).Text
+
+			if diff := cmp.Diff(tt.want, got, cmpExpr()); diff != "" {
+				t.Errorf("PreambleDecl mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
@@ -102,44 +175,36 @@ func bibKeys(ts ...string) func(decl *ast.BibDecl) {
 	}
 }
 
-func bibTags(ts ...string) func(decl *ast.BibDecl) {
-	if len(ts)%2 != 0 {
+func bibTags(key string, val ast.Expr, rest ...interface{}) func(decl *ast.BibDecl) {
+	if len(rest)%2 != 0 {
 		panic("bibTags must have even number of strings for key-val pairs")
 	}
+	for i := 0; i < len(rest); i += 2 {
+		k := rest[i]
+		v := rest[i+1]
+		if _, ok := k.(string); !ok {
+			panic("need string at index: " + strconv.Itoa(i))
+		}
+		if _, ok := v.(ast.Expr); !ok {
+			panic("need ast.Expr at index: " + strconv.Itoa(i+1))
+		}
+	}
 	return func(b *ast.BibDecl) {
-		for i := 0; i < len(ts); i += 2 {
-			key, val := ts[i], ts[i+1]
+		b.Tags = append(b.Tags, &ast.TagStmt{
+			Name:    key,
+			RawName: key,
+			Value:   val,
+		})
+		for i := 0; i < len(rest); i += 2 {
+			k, v := rest[i].(string), rest[i+1].(ast.Expr)
 			tag := &ast.TagStmt{
-				Name:    key,
-				RawName: key,
-				Value: &ast.BasicLit{
-					Kind:  token.BraceString,
-					Value: val,
-				},
+				Name:    k,
+				RawName: k,
+				Value:   v,
 			}
 			b.Tags = append(b.Tags, tag)
 		}
 	}
-}
-
-func cmpIdentName() cmp.Option {
-	return cmp.Transformer("ident_name", func(x *ast.Ident) string {
-		return x.Name
-	})
-}
-
-func cmpTagEntry() cmp.Option {
-	return cmp.Transformer("tag_entry", func(t *ast.TagStmt) string {
-		k := t.RawName
-		var val string
-		switch v := t.Value.(type) {
-		case *ast.BasicLit:
-			val = v.Kind.String() + "(" + v.Value + ")"
-		default:
-			val = fmt.Sprintf("%v", v)
-		}
-		return k + " = " + val
-	})
 }
 
 func TestParseFile_BibDecl(t *testing.T) {
@@ -148,9 +213,10 @@ func TestParseFile_BibDecl(t *testing.T) {
 		keysFn func(*ast.BibDecl)
 		tagsFn func(*ast.BibDecl)
 	}{
-		{"@article { cite_key, key = {foo} }", bibKeys("cite_key"), bibTags("key", "foo")},
-		{"@article {cite_key1, key = {foo} }", bibKeys("cite_key1"), bibTags("key", "foo")},
-		{"@article {111, key = {foo} }", bibKeys("111"), bibTags("key", "foo")},
+		{"@article { cite_key, key = {foo} }", bibKeys("cite_key"), bibTags("key", braceStr("foo"))},
+		{"@article {cite_key1, key = {foo} }", bibKeys("cite_key1"), bibTags("key", braceStr("foo"))},
+		{"@article {111, key = {foo} }", bibKeys("111"), bibTags("key", braceStr("foo"))},
+		{"@article {111, key = bar }", bibKeys("111"), bibTags("key", ident("bar"))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {

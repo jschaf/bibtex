@@ -68,17 +68,24 @@ type (
 	// An Ident node represents an identifier like a bibtex citation key or tag
 	// key.
 	Ident struct {
-		NamePos   gotok.Pos // identifier position
-		Name      string    // identifier name
-		IsNumeric bool      // true if the name consists solely of digits
-		Obj       *Object   // denoted object; or nil
+		NamePos gotok.Pos // identifier position
+		Name    string    // identifier name
+		Obj     *Object   // denoted object; or nil
 	}
 
-	// A BasicLit noe represents literals of basic type.
+	// A BasicLit node represents literals of basic type.
 	BasicLit struct {
 		ValuePos gotok.Pos   // literal position
 		Kind     token.Token // token.Number, token.String, token.BraceString
 		Value    string      // literal string, e.g. 42, "foo", {bar}
+	}
+
+	// A ConcatExpr node represents a bibtex concatenation like:
+	//   "foo" # "bar"
+	ConcatExpr struct {
+		X     Expr
+		OpPos gotok.Pos
+		Y     Expr
 	}
 )
 
@@ -93,6 +100,10 @@ func (*Ident) exprNode()        {}
 func (x *BasicLit) Pos() gotok.Pos { return x.ValuePos }
 func (x *BasicLit) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
 func (*BasicLit) exprNode()        {}
+
+func (x *ConcatExpr) Pos() gotok.Pos { return x.X.Pos() }
+func (x *ConcatExpr) End() gotok.Pos { return x.Y.Pos() }
+func (*ConcatExpr) exprNode()        {}
 
 // ----------------------------------------------------------------------------
 // Statements
@@ -160,7 +171,7 @@ type (
 	PreambleDecl struct {
 		Doc    *TexCommentGroup // associated documentation; or nil
 		Entry  gotok.Pos        // position of the "@PREAMBLE" token
-		Text   *BasicLit        // The content of the preamble node
+		Text   Expr             // The content of the preamble node
 		RBrace gotok.Pos        // position of the closing right brace token: "}"
 	}
 )

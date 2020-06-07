@@ -298,6 +298,7 @@ func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
 	case isName(ch):
 		tok = token.Ident
 		lit = s.scanIdent()
+
 	default:
 		s.next() // always make progress
 		switch ch {
@@ -338,6 +339,8 @@ func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
 		case '%':
 			tok = token.TexComment
 			lit = s.scanTexComment()
+		case '#':
+			tok = token.Concat
 
 		default:
 			// next reports unexpected BOMs - don't repeat

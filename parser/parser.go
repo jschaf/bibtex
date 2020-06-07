@@ -328,6 +328,14 @@ var entryStart = map[token.Token]bool{
 	token.BibEntry: true,
 }
 
+// isValidTagName returns true if the ident is a valid tag name.
+// Uses rules according to Biber:
+// https://metacpan.org/pod/release/AMBS/Text-BibTeX-0.66/btparse/doc/bt_language.pod
+func isValidTagName(key *ast.Ident) bool {
+	ch := key.Name[0]
+	return ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z')
+}
+
 func (p *parser) parseBasicLit() (l *ast.BasicLit) {
 	switch {
 	case p.tok.IsLiteral():
@@ -348,10 +356,14 @@ func (p *parser) parseExpr() (x ast.Expr) {
 	switch {
 	case p.tok.IsLiteral():
 		x = p.parseBasicLit()
-		if x == nil {
-			x = &ast.BadExpr{
-				From: pos,
-				To:   p.pos,
+		if p.tok == token.Concat {
+			p.next()
+			opPos := p.pos
+			y := p.parseExpr()
+			x = &ast.ConcatExpr{
+				X:     x,
+				OpPos: opPos,
+				Y:     y,
 			}
 		}
 
@@ -369,7 +381,6 @@ func (p *parser) parseExpr() (x ast.Expr) {
 func (p *parser) parseIdent() *ast.Ident {
 	pos := p.pos
 	name := "_"
-	isNum := false
 	switch p.tok {
 	// Bibtex cite keys may be all numbers, but tag keys may not. Allow either
 	// here and check one level up.
@@ -379,11 +390,10 @@ func (p *parser) parseIdent() *ast.Ident {
 	case token.Number:
 		name = p.lit
 		p.next()
-		isNum = true
 	default:
 		p.expect(token.Ident) // use expect() error handling
 	}
-	return &ast.Ident{NamePos: pos, Name: name, IsNumeric: isNum}
+	return &ast.Ident{NamePos: pos, Name: name}
 }
 
 func (p *parser) parseTagStmt() *ast.TagStmt {
@@ -415,7 +425,7 @@ func (p *parser) parsePreambleDecl() *ast.PreambleDecl {
 	doc := p.leadComment
 	pos := p.expect(token.Preamble)
 	p.expect(token.LBrace)
-	text := p.parseBasicLit()
+	text := p.parseExpr()
 	rBrace := p.expect(token.RBrace)
 	return &ast.PreambleDecl{
 		Doc:    doc,
@@ -491,14 +501,6 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 	}
 }
 
-// isValidTagName returns true if the ident is a valid tag name.
-// Uses rules according to biber:
-// https://metacpan.org/pod/release/AMBS/Text-BibTeX-0.66/btparse/doc/bt_language.pod
-func isValidTagName(key *ast.Ident) bool {
-	ch := key.Name[0]
-	return ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z')
-}
-
 func (p *parser) parseDecl() ast.Decl {
 	if p.trace {
 		defer un(trace(p, "Declaration"))
@@ -531,7 +533,7 @@ func (p *parser) parseFile() *ast.File {
 	}
 
 	// Don't bother parsing the rest if we had errors scanning the first token.
-	// Likely not a Go source file at all.
+	// Likely not a bibtex source file at all.
 	if p.errors.Len() != 0 {
 		return nil
 	}

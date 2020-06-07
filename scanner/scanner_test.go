@@ -65,6 +65,8 @@ var tokens = [...]elt{
 	{token.Ident, "qux", literal},
 	{token.Ident, "qux_2", literal},
 	{token.Ident, "q!$&*+-./:;<>?[]^_`|", literal},
+	// Operators
+	{token.Concat, "#", operator},
 }
 
 const whitespace = "  \t  \n\n\n" // to separate tokens
@@ -213,7 +215,6 @@ func TestScanErrors(t *testing.T) {
 		lit string
 		err string
 	}{
-		{`#`, token.Illegal, 0, "", "illegal character U+0023 '#'"},
 		{`'`, token.Illegal, 0, `'`, "illegal character U+0027 '''"},
 		// Valid
 		{`""`, token.String, 0, ``, ""},
