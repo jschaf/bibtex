@@ -39,19 +39,10 @@ type parser struct {
 	syncPos gotok.Pos // last synchronization position
 	syncCnt int       // number of parser.advance calls without progress
 
-	// Non-syntactic parser control
-	exprLev int  // < 0: in control clause, >= 0: in expression
-	inRhs   bool // if set, the parser is parsing a rhs expression
-
-	// Ordinary identifier scopes
+	// Ordinary cite key scopes
 	pkgScope   *ast.Scope   // pkgScope.Outer == nil
 	topScope   *ast.Scope   // top-most scope; may be pkgScope
-	unresolved []*ast.Ident // unresolved identifiers
-
-	// Label scopes
-	// (maintained by open/close LabelScope)
-	labelScope  *ast.Scope     // label scope for current function
-	targetStack [][]*ast.Ident // stack of unresolved labels
+	unresolved []*ast.Ident // unresolved cite keys
 }
 
 func (p *parser) init(fset *gotok.FileSet, filename string, src []byte, mode Mode) {
@@ -329,7 +320,8 @@ var entryStart = map[token.Token]bool{
 }
 
 // isValidTagName returns true if the ident is a valid tag name.
-// Uses rules according to Biber:
+// Uses rules according to Biber which means a tag key is a Bibtex name with the
+// extra condition that it must begin with a letter:
 // https://metacpan.org/pod/release/AMBS/Text-BibTeX-0.66/btparse/doc/bt_language.pod
 func isValidTagName(key *ast.Ident) bool {
 	ch := key.Name[0]
@@ -352,6 +344,9 @@ func (p *parser) parseBasicLit() (l *ast.BasicLit) {
 }
 
 func (p *parser) parseExpr() (x ast.Expr) {
+	if p.trace {
+		defer un(trace(p, "Expr"))
+	}
 	pos := p.pos
 	switch {
 	case p.tok.IsLiteral():
@@ -549,7 +544,6 @@ func (p *parser) parseFile() *ast.File {
 	}
 	p.closeScope()
 	assert(p.topScope == nil, "unbalanced scopes")
-	assert(p.labelScope == nil, "unbalanced label scopes")
 
 	// resolve global identifiers within the same file
 	i := 0
