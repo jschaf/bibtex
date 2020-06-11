@@ -379,10 +379,7 @@ func (p *parser) parseIdent() *ast.Ident {
 	switch p.tok {
 	// Bibtex cite keys may be all numbers, but tag keys may not. Allow either
 	// here and check one level up.
-	case token.Ident:
-		name = p.lit
-		p.next()
-	case token.Number:
+	case token.Ident, token.Number:
 		name = p.lit
 		p.next()
 	default:
@@ -453,7 +450,8 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 	}
 	doc := p.leadComment
 	pos := p.expect(token.BibEntry)
-	keys := make([]*ast.Ident, 0, 2)
+	var bibKey *ast.Ident
+	var extraKeys []*ast.Ident
 	tags := make([]*ast.TagStmt, 0, 8)
 	p.expect(token.LBrace)
 	// A bibtex entry cite key may be all numbers but a tag key cannot.
@@ -482,17 +480,22 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 		case token.Comma:
 			// It's a cite key.
 			p.next()
-			keys = append(keys, key)
+			if bibKey == nil {
+				bibKey = key
+			} else {
+				extraKeys = append(extraKeys, key)
+			}
 			continue
 		}
 	}
 	rBrace := p.expect(token.RBrace)
 	return &ast.BibDecl{
-		Doc:    doc,
-		Entry:  pos,
-		Keys:   keys,
-		Tags:   tags,
-		RBrace: rBrace,
+		Doc:       doc,
+		Entry:     pos,
+		Key:       bibKey,
+		ExtraKeys: extraKeys,
+		Tags:      tags,
+		RBrace:    rBrace,
 	}
 }
 

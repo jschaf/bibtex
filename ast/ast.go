@@ -159,11 +159,12 @@ type (
 	// An BibDecl node represents a bibtex entry, like:
 	//   @article { author = "bar" }
 	BibDecl struct {
-		Doc    *TexCommentGroup // associated documentation; or nil
-		Entry  gotok.Pos        // position of the start token, e.g. "@article"
-		Keys   []*Ident
-		Tags   []*TagStmt // all tags in the declaration
-		RBrace gotok.Pos  // position of the closing right brace token: "}".
+		Doc       *TexCommentGroup // associated documentation; or nil
+		Entry     gotok.Pos        // position of the start token, e.g. "@article"
+		Key       *Ident           // the first key in the declaration
+		ExtraKeys []*Ident         // any other keys in the declaration, usually nil
+		Tags      []*TagStmt       // all tags in the declaration
+		RBrace    gotok.Pos        // position of the closing right brace token: "}".
 	}
 
 	// An PreambleDecl node represents a bibtex preamble, like:

@@ -169,8 +169,12 @@ func TestParseFile_AbbrevDecl(t *testing.T) {
 
 func bibKeys(ts ...string) func(decl *ast.BibDecl) {
 	return func(b *ast.BibDecl) {
+		if len(ts) > 0 {
+			b.Key = &ast.Ident{Name: ts[0]}
+			ts = ts[1:]
+		}
 		for _, k := range ts {
-			b.Keys = append(b.Keys, &ast.Ident{Name: k})
+			b.ExtraKeys = append(b.ExtraKeys, &ast.Ident{Name: k})
 		}
 	}
 }
@@ -217,6 +221,7 @@ func TestParseFile_BibDecl(t *testing.T) {
 		{"@article {cite_key1, key = {foo} }", bibKeys("cite_key1"), bibTags("key", braceStr("foo"))},
 		{"@article {111, key = {foo} }", bibKeys("111"), bibTags("key", braceStr("foo"))},
 		{"@article {111, key = bar }", bibKeys("111"), bibTags("key", ident("bar"))},
+		{"@article {111, key = bar, extra }", bibKeys("111", "extra"), bibTags("key", ident("bar"))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -230,7 +235,7 @@ func TestParseFile_BibDecl(t *testing.T) {
 			tt.keysFn(wantBib)
 			tt.tagsFn(wantBib)
 
-			if diff := cmp.Diff(wantBib.Keys, gotBib.Keys, cmpIdentName()); diff != "" {
+			if diff := cmp.Diff(wantBib.Key, gotBib.Key, cmpIdentName()); diff != "" {
 				t.Errorf("BibDecl keys mismatch (-want +got):\n%s", diff)
 			}
 			if diff := cmp.Diff(wantBib.Tags, gotBib.Tags, cmpTagEntry()); diff != "" {

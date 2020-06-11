@@ -81,10 +81,8 @@ func (obj *Object) Pos() token.Pos {
 	name := obj.Name
 	switch d := obj.Decl.(type) {
 	case *BibDecl:
-		for _, n := range d.Keys {
-			if n.Name == name {
-				return n.Pos()
-			}
+		if d.Key != nil && d.Key.Name == name {
+			return d.Key.Pos()
 		}
 	case *Scope:
 		// predeclared object - nothing to do for now
