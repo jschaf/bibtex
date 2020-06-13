@@ -37,12 +37,16 @@ func exprString(x ast.Expr) string {
 		} else {
 			return "UnparsedText({" + v.Value + "})"
 		}
+	case *ast.Text:
+		return "Text[" + v.Kind.String() + "](" + v.Value + ")"
+
 	case *ast.ParsedText:
 		sb := strings.Builder{}
-		if v.Kind == token.String {
-			sb.WriteString("ParsedText(\"")
+		sb.WriteString("ParsedText[" + strconv.Itoa(v.Depth) + "]")
+		if v.Delim == ast.QuoteDelimiter {
+			sb.WriteString(`"`)
 		} else {
-			sb.WriteString("ParsedText({")
+			sb.WriteString("{")
 		}
 		for i, val := range v.Values {
 			sb.WriteString(exprString(val))
@@ -50,8 +54,8 @@ func exprString(x ast.Expr) string {
 				sb.WriteString(", ")
 			}
 		}
-		if v.Kind == token.String {
-			sb.WriteString("\")")
+		if v.Delim == ast.QuoteDelimiter {
+			sb.WriteString(`")`)
 		} else {
 			sb.WriteString("})")
 		}
@@ -74,6 +78,42 @@ func unparsedBraceText(s string) ast.Expr {
 		Kind:  token.BraceString,
 		Value: s,
 	}
+}
+
+// bText return parsed text delimited by braces.
+func bText(depth int, ss ...ast.Expr) ast.Expr {
+	return &ast.ParsedText{
+		Depth:  depth,
+		Delim:  ast.BraceDelimiter,
+		Values: ss,
+	}
+}
+
+// qText return parsed text delimited by quotes.
+func qText(depth int, ss ...ast.Expr) ast.Expr {
+	return &ast.ParsedText{
+		Depth:  depth,
+		Delim:  ast.QuoteDelimiter,
+		Values: ss,
+	}
+}
+
+func text(kind ast.TextKind, s string) *ast.Text {
+	return &ast.Text{
+		Kind:  kind,
+		Value: s,
+	}
+}
+
+func txt(s string) *ast.Text {
+	return &ast.Text{
+		Kind:  ast.TextContent,
+		Value: s,
+	}
+}
+
+func wSpace() *ast.Text {
+	return &ast.Text{Kind: ast.TextSpace}
 }
 
 func unparsedText(s string) ast.Expr {
@@ -245,6 +285,41 @@ func TestParseFile_BibDecl(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			f, err := ParseFile(gotok.NewFileSet(), "", tt.src, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			gotBib := f.Entries[0].(*ast.BibDecl)
+			wantBib := &ast.BibDecl{}
+			tt.keysFn(wantBib)
+			tt.tagsFn(wantBib)
+
+			if diff := cmp.Diff(wantBib.Key, gotBib.Key, cmpIdentName()); diff != "" {
+				t.Errorf("BibDecl keys mismatch (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(wantBib.Tags, gotBib.Tags, cmpTagEntry()); diff != "" {
+				t.Errorf("BibDecl keys mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestParseFile_BibDecl_ModeParseStrings(t *testing.T) {
+	tests := []struct {
+		src    string
+		keysFn func(*ast.BibDecl)
+		tagsFn func(*ast.BibDecl)
+	}{
+		{"@article { cite_key, key = {foo} }", bibKeys("cite_key"), bibTags("key", bText(0, txt("foo")))},
+		{"@article { cite_key, key = {{f}oo}}", bibKeys("cite_key"), bibTags("key", bText(0, bText(1, txt("f")), txt("oo")))},
+		{`@article { cite_key, key = "foo" }`, bibKeys("cite_key"), bibTags("key", qText(0, txt("foo")))},
+		{"@article { cite_key, key = {f\no\ro} }",
+			bibKeys("cite_key"),
+			bibTags("key", bText(0, txt("f"), wSpace(), txt("o"), wSpace(), txt("o")))},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			f, err := ParseFile(gotok.NewFileSet(), "", tt.src, ParseStrings)
 			if err != nil {
 				t.Fatal(err)
 			}

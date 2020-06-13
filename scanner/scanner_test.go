@@ -258,7 +258,7 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 		{"a" + wSpace + "b", toks("a", wSpace, "b")},
 		{"a,b", toks("a", ",", "b")},
 		{"a~b", toks("a", "~", "b")},
-		{"a{\"}b", toks("a", "{", `"`, "}", "b")},
+		{`a{"}b`, toks("a", "{", `"`, "}", "b")},
 		{"{Fo}o", toks("{", `Fo`, "}", "o")},
 	}
 

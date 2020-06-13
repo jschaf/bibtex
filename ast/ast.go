@@ -56,15 +56,56 @@ func (g *TexCommentGroup) End() gotok.Pos { return g.List[len(g.List)-1].End() }
 // ----------------------------------------------------------------------------
 // Expressions
 
-type StringKind int
+type TextDelimiter int
+
+func (t TextDelimiter) String() string {
+	switch t {
+	case QuoteDelimiter:
+		return "QuoteDelimiter"
+	case BraceDelimiter:
+		return "BraceDelimiter"
+	default:
+		return "UnknownDelimiter"
+	}
+}
 
 const (
-	Content StringKind = iota
-	Space
-	NBSP
-	Comma
-	Math
+	QuoteDelimiter TextDelimiter = iota
+	BraceDelimiter
 )
+
+type TextKind int
+
+const (
+	TextContent TextKind = iota
+	TextSpace
+	TextNBSP
+	TextComma
+	TextMath
+	TextHyphen
+	TextSpecial
+)
+
+func (t TextKind) String() string {
+	switch t {
+	case TextContent:
+		return "TextContent"
+	case TextSpace:
+		return "TextSpace"
+	case TextNBSP:
+		return "TextNBSP"
+	case TextComma:
+		return "TextComma"
+	case TextMath:
+		return "TextMath"
+	case TextHyphen:
+		return "TextHyphen"
+	case TextSpecial:
+		return "TextSpecial"
+	default:
+		return "UnknownTextKind"
+	}
+}
 
 // An expression is represented by a tree consisting of one or more of the
 // following concrete expressions.
@@ -83,7 +124,8 @@ type (
 		Obj     *Object   // denoted object; or nil
 	}
 
-	// A Number node represents an unquoted number.
+	// A Number node represents an unquoted number, like:
+	//   year = 2004
 	Number struct {
 		ValuePos gotok.Pos
 		Value    string
@@ -99,24 +141,18 @@ type (
 
 	// A ParsedText node represents a parsed bibtex string.
 	ParsedText struct {
-		Open   gotok.Pos   // opening delimiter
-		Kind   token.Token // token.String or token.BraceString
-		Values []Expr      // Text or BraceText
-	}
-
-	// A BraceText node represents a brace delimited substring inside a
-	// ParsedText. For example, the "{baz}" below:
-	//   foo = {qux {baz}}
-	BraceText struct {
-		Depth  int    // the brace depth; starts at 1 because the 0th layer is ParsedText
-		Values []Expr // Text or BraceText
+		Opener gotok.Pos // opening delimiter
+		Depth  int       // the brace depth
+		Delim  TextDelimiter
+		Values []Expr    // Text or ParsedText
+		Closer gotok.Pos // closing delimiter
 	}
 
 	// A Text node represents a piece of ParsedText.
 	Text struct {
 		ValuePos gotok.Pos // literal position
-		Kind     StringKind
-		Value    string // excludes delimiters for Math
+		Kind     TextKind
+		Value    string // excludes delimiters for TextMath
 	}
 
 	// A ConcatExpr node represents a bibtex concatenation like:
@@ -144,14 +180,18 @@ func (x *UnparsedText) Pos() gotok.Pos { return x.ValuePos }
 func (x *UnparsedText) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
 func (*UnparsedText) exprNode()        {}
 
-func (x *ParsedText) Pos() gotok.Pos { return x.Open }
+func (x *ParsedText) Pos() gotok.Pos { return x.Opener }
 func (x *ParsedText) End() gotok.Pos {
 	if len(x.Values) > 0 {
 		return x.Values[len(x.Values)-1].Pos()
 	}
-	return x.Open
+	return x.Opener
 }
 func (*ParsedText) exprNode() {}
+
+func (x *Text) Pos() gotok.Pos { return x.ValuePos }
+func (x *Text) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
+func (*Text) exprNode()        {}
 
 func (x *ConcatExpr) Pos() gotok.Pos { return x.X.Pos() }
 func (x *ConcatExpr) End() gotok.Pos { return x.Y.Pos() }

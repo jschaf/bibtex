@@ -281,7 +281,7 @@ func (p *parser) expectOne(tok ...token.Token) (token.Token, gotok.Pos) {
 
 func (p *parser) expectComma() {
 	if p.tok == token.RBrace || p.tok == token.RParen {
-		// Comma is optional before a closing ')' or '}'
+		// TextComma is optional before a closing ')' or '}'
 		return
 	}
 	switch p.tok {
@@ -378,6 +378,81 @@ func (p *parser) parseBasicLit() (l ast.Expr) {
 	return
 }
 
+func (p *parser) parseText(depth int) (txt ast.Expr) {
+	if p.tok == token.StringLBrace {
+		opener := p.pos
+		p.next()
+
+		values := make([]ast.Expr, 0, 2)
+		for p.tok != token.StringRBrace {
+			values = append(values, p.parseText(depth+1))
+		}
+		txt = &ast.ParsedText{
+			Depth:  depth,
+			Opener: opener,
+			Delim:  ast.BraceDelimiter,
+			Values: values,
+			Closer: p.pos,
+		}
+		p.next() // consume closing '}'
+		return
+	}
+
+	switch p.tok {
+	case token.StringMath:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextMath, Value: p.lit}
+	case token.StringHyphen:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextHyphen, Value: p.lit}
+	case token.StringNBSP:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextNBSP, Value: p.lit}
+	case token.StringContents:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextContent, Value: p.lit}
+	case token.StringSpace:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextSpace, Value: p.lit}
+	case token.StringSpecial:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextSpecial, Value: p.lit}
+	case token.StringComma:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextComma, Value: p.lit}
+	default:
+		p.error(p.pos, "unknown text type: "+p.tok.String())
+	}
+
+	p.next()
+	return
+}
+
+func (p *parser) parseStringLiteral() ast.Expr {
+	pos := p.pos
+	switch tok := p.tok; tok {
+	case token.DoubleQuote:
+		p.next()
+		values := make([]ast.Expr, 0, 2)
+		for p.tok != token.DoubleQuote {
+			values = append(values, p.parseText(1))
+		}
+		p.next() // consume closing '"'
+		txt := &ast.ParsedText{
+			Opener: pos,
+			Depth:  0,
+			Delim:  ast.QuoteDelimiter,
+			Values: values,
+			Closer: p.pos,
+		}
+		return txt
+
+	case token.StringLBrace:
+		return p.parseText(0)
+
+	default:
+		p.errorExpected(p.pos, "string literal")
+		p.advance(stmtStart)
+		return &ast.BadExpr{
+			From: pos,
+			To:   p.pos,
+		}
+	}
+}
+
 func (p *parser) parseExpr() (x ast.Expr) {
 	if p.trace {
 		defer un(trace(p, "Expr"))
@@ -397,8 +472,11 @@ func (p *parser) parseExpr() (x ast.Expr) {
 			}
 		}
 
+	case p.tok.IsStringLiteral():
+		x = p.parseStringLiteral()
+
 	default:
-		p.errorExpected(p.pos, "literal: number or string (\"foo\" or {foo})")
+		p.errorExpected(p.pos, "literal: number or string")
 		x = &ast.BadExpr{
 			From: pos,
 			To:   p.pos,
