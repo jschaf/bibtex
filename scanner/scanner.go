@@ -441,6 +441,10 @@ func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
 			lit = s.scanTexComment()
 		case '#':
 			tok = token.Concat
+		case '(':
+			tok = token.LParen
+		case ')':
+			tok = token.RParen
 
 		default:
 			// next reports unexpected BOMs - don't repeat

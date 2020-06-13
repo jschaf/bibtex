@@ -103,11 +103,12 @@ func TestParseFile_PreambleDecl(t *testing.T) {
 		src  string
 		want ast.Expr
 	}{
-		{"@PREAMBLE { {foo} }", braceStr("foo")},
-		{`@PREAMBLE { "foo" }`, litStr("foo")},
-		{`@preamble { "foo" }`, litStr("foo")},
-		{`@preamble { "foo" # "bar" }`, concat(litStr("foo"), litStr("bar"))},
-		{`@preamble { "foo" # "bar" # "qux" }`, concat(litStr("foo"), concat(litStr("bar"), litStr("qux")))},
+		// {"@PREAMBLE { {foo} }", braceStr("foo")},
+		// {`@PREAMBLE { "foo" }`, litStr("foo")},
+		{`@PREAMBLE ( "foo" )`, litStr("foo")},
+		// {`@preamble { "foo" }`, litStr("foo")},
+		// {`@preamble { "foo" # "bar" }`, concat(litStr("foo"), litStr("bar"))},
+		// {`@preamble { "foo" # "bar" # "qux" }`, concat(litStr("foo"), concat(litStr("bar"), litStr("qux")))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -251,12 +252,14 @@ func TestParseFile_BibDecl_invalid(t *testing.T) {
 		src string
 	}{
 		{"@article {111, 111 = {foo} }"}, // tag keys must not be all numeric
+		{"@article { foo = {foo} )"},     // mismatched delimiters
+		{"@article ( foo = {foo} }"},     // mismatched delimiters
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			_, err := ParseFile(gotok.NewFileSet(), "", tt.src, 0)
 			if err == nil {
-				t.Fatal(err)
+				t.Fatalf("expected error but had none:\n%s", tt.src)
 			}
 		})
 	}

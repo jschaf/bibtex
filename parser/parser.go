@@ -253,6 +253,29 @@ func (p *parser) expect(tok token.Token) gotok.Pos {
 	return pos
 }
 
+func (p *parser) expectOne(tok ...token.Token) (token.Token, gotok.Pos) {
+	pos := p.pos
+	for _, t := range tok {
+		if p.tok == t {
+			p.next()
+			return t, pos
+		}
+	}
+
+	sb := strings.Builder{}
+	sb.WriteString("one of [")
+	for i, t := range tok {
+		sb.WriteString("'" + t.String() + "'")
+		if i < len(tok)-1 {
+			sb.WriteString(", ")
+		}
+	}
+	sb.WriteString("]")
+	p.errorExpected(pos, sb.String())
+	p.next() // make progress
+	return token.Illegal, pos
+}
+
 func (p *parser) expectComma() {
 	if p.tok == token.RBrace || p.tok == token.RParen {
 		// Comma is optional before a closing ')' or '}'
@@ -409,20 +432,33 @@ func (p *parser) parseTagStmt() *ast.TagStmt {
 	}
 }
 
+func (p *parser) expectCloser(open token.Token) gotok.Pos {
+	end := p.pos
+	switch open {
+	case token.LBrace:
+		end = p.expect(token.RBrace)
+	case token.LParen:
+		end = p.expect(token.RParen)
+	default:
+		p.error(p.pos, "no closing delimiter for "+open.String())
+	}
+	return end
+}
+
 func (p *parser) parsePreambleDecl() *ast.PreambleDecl {
 	if p.trace {
 		defer un(trace(p, "PreambleDecl"))
 	}
 	doc := p.leadComment
 	pos := p.expect(token.Preamble)
-	p.expect(token.LBrace)
+	opener, _ := p.expectOne(token.LBrace, token.LParen)
 	text := p.parseExpr()
-	rBrace := p.expect(token.RBrace)
+	closer := p.expectCloser(opener)
 	return &ast.PreambleDecl{
 		Doc:    doc,
 		Entry:  pos,
 		Text:   text,
-		RBrace: rBrace,
+		RBrace: closer,
 	}
 }
 
@@ -432,14 +468,14 @@ func (p *parser) parseAbbrevDecl() *ast.AbbrevDecl {
 	}
 	doc := p.leadComment
 	pos := p.expect(token.Abbrev)
-	p.expect(token.LBrace)
+	opener, _ := p.expectOne(token.LBrace, token.LParen)
 	tag := p.parseTagStmt()
-	rBrace := p.expect(token.RBrace)
+	closer := p.expectCloser(opener)
 	return &ast.AbbrevDecl{
 		Doc:    doc,
 		Entry:  pos,
 		Tag:    tag,
-		RBrace: rBrace,
+		RBrace: closer,
 	}
 }
 
@@ -452,7 +488,7 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 	var bibKey *ast.Ident
 	var extraKeys []*ast.Ident
 	tags := make([]*ast.TagStmt, 0, 8)
-	p.expect(token.LBrace)
+	opener, _ := p.expectOne(token.LBrace, token.LParen)
 	// A bibtex entry cite key may be all numbers but a tag key cannot.
 	for p.tok == token.Ident || p.tok == token.Number {
 		doc := p.leadComment
@@ -487,14 +523,14 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 			continue
 		}
 	}
-	rBrace := p.expect(token.RBrace)
+	closer := p.expectCloser(opener)
 	return &ast.BibDecl{
 		Doc:       doc,
 		Entry:     pos,
 		Key:       bibKey,
 		ExtraKeys: extraKeys,
 		Tags:      tags,
-		RBrace:    rBrace,
+		RBrace:    closer,
 	}
 }
 

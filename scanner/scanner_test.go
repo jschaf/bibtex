@@ -3,13 +3,29 @@ package scanner
 import (
 	gotok "go/token"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/jschaf/b2/pkg/bibtex/token"
 )
 
-type tokClass = int
+type tokClass int
+
+func (t tokClass) String() string {
+	switch t {
+	case special:
+		return "special"
+	case literal:
+		return "literal"
+	case command:
+		return "command"
+	case operator:
+		return "operator"
+	default:
+		return "tokClass(" + strconv.Itoa(int(t)) + ")"
+	}
+}
 
 const (
 	special = iota
@@ -56,16 +72,18 @@ var tokens = [...]elt{
 	{token.BraceString, `{foo}`, literal}, // Assign must precede brace string
 	{token.Assign, `=`, operator},
 	{token.BraceString, `{{f}oo}`, literal}, // Assign must precede brace string
-	{token.LBrace, `{`, operator},
-	{token.RBrace, `}`, operator},
 	{token.TexComment, "% foo\n", special},
 	{token.LBrace, `{`, operator},
 	{token.BraceString, `{{f}oo}`, literal}, // LBrace must precede brace string
 	{token.Ident, "qux", literal},
 	{token.Ident, "qux_2", literal},
 	{token.Ident, "q!$&*+-./:;<>?[]^_`|", literal},
-	// Operators
+	// Operators and delimiters
 	{token.Concat, "#", operator},
+	{token.LParen, "(", operator},
+	{token.RParen, ")", operator},
+	{token.LBrace, `{`, operator},
+	{token.RBrace, `}`, operator},
 }
 
 const whitespace = "  \t  \n\n\n" // to separate tokens
@@ -373,7 +391,7 @@ func TestScanner_Scan_Errors(t *testing.T) {
 func checkPosTokenClass(t *testing.T, tok token.Token, e tokClass, lit string) {
 	t.Helper()
 	if tokenClass(tok) != e {
-		t.Errorf("bad class for %q: got %d, expected %d", lit, tokenClass(tok), e)
+		t.Errorf("bad class for %q: got %s, expected %s", lit, tokenClass(tok), e)
 	}
 }
 
