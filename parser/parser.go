@@ -140,7 +140,6 @@ func (p *parser) consumeComment() (comment *ast.TexComment, endLine int) {
 // comments list, and return it together with the line at which
 // the last comment in the group ends. A non-comment token or n
 // empty lines terminate a comment group.
-//
 func (p *parser) consumeCommentGroup(n int) (comments *ast.TexCommentGroup, endLine int) {
 	var list []*ast.TexComment
 	endLine = p.file.Line(p.pos)

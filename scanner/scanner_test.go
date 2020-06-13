@@ -8,8 +8,6 @@ import (
 	"github.com/jschaf/b2/pkg/bibtex/token"
 )
 
-var fset = gotok.NewFileSet()
-
 type tokClass = int
 
 const (
@@ -90,26 +88,8 @@ func newlineCount(s string) int {
 	return n
 }
 
-func checkPos(t *testing.T, lit string, p gotok.Pos, expected gotok.Position) {
-	pos := fset.Position(p)
-	// Check cleaned filenames so that we don't have to worry about
-	// different os.PathSeparator values.
-	if pos.Filename != expected.Filename && filepath.Clean(pos.Filename) != filepath.Clean(expected.Filename) {
-		t.Errorf("bad filename for %q: got %s, expected %s", lit, pos.Filename, expected.Filename)
-	}
-	if pos.Offset != expected.Offset {
-		t.Errorf("bad position for %q: got %d, expected %d", lit, pos.Offset, expected.Offset)
-	}
-	if pos.Line != expected.Line {
-		t.Errorf("bad line for %q: got %d, expected %d", lit, pos.Line, expected.Line)
-	}
-	if pos.Column != expected.Column {
-		t.Errorf("bad column for %q: got %d, expected %d", lit, pos.Column, expected.Column)
-	}
-}
-
 // Verify that calling Scan() provides the correct results.
-func TestScan(t *testing.T) {
+func TestScanner_Scan(t *testing.T) {
 	whitespaceLineCount := newlineCount(whitespace)
 
 	// error handler
@@ -119,6 +99,7 @@ func TestScan(t *testing.T) {
 
 	// verify scan
 	var s Scanner
+	fset := gotok.NewFileSet()
 	s.Init(fset.AddFile("", fset.Base(), len(source)), source, eh, ScanComments)
 
 	// set up expected position
@@ -140,7 +121,7 @@ func TestScan(t *testing.T) {
 		isDone := false
 		t.Run(e.tok.String()+"-"+e.lit, func(t *testing.T) {
 
-			pos, tok, lit := s.Scan()
+			p, tok, lit := s.Scan()
 
 			// check position
 			if tok == token.EOF {
@@ -148,16 +129,13 @@ func TestScan(t *testing.T) {
 				epos.Line = newlineCount(string(source))
 				epos.Column = 2
 			}
-			checkPos(t, lit, pos, epos)
-
-			if tok != e.tok {
-				t.Errorf("bad token for %q: got %s, expected %s", lit, tok, e.tok)
-			}
-
-			// check token class
-			if tokenClass(tok) != e.class {
-				t.Errorf("bad class for %q: got %d, expected %d", lit, tokenClass(tok), e.class)
-			}
+			pos := fset.Position(p)
+			checkPosFilename(t, pos, epos, lit)
+			checkPosOffset(t, pos, epos, lit)
+			checkPosLine(t, pos, epos, lit)
+			checkPosColumn(t, pos, epos, lit)
+			checkPosToken(t, tok, e.tok, lit)
+			checkPosTokenClass(t, tok, e.class, lit)
 
 			// check literal
 			elit := ""
@@ -201,7 +179,99 @@ func TestScan(t *testing.T) {
 	}
 }
 
-func TestScanErrors(t *testing.T) {
+type tok struct {
+	t   token.Token
+	lit string
+}
+
+func tokDQ() tok {
+	return tok{
+		t: token.DoubleQuote,
+	}
+}
+
+func tokQuotes(t ...tok) []tok {
+	ts := make([]tok, len(t)+2)
+	ts[0] = tok{t: token.DoubleQuote}
+	for i := 0; i < len(t); i++ {
+		ts[i+1] = t[i]
+	}
+	ts[len(t)+1] = tok{t: token.DoubleQuote}
+	return ts
+}
+
+func tokMath(s string) tok {
+	return tok{t: token.Math, lit: s}
+}
+
+func tokContent(s string) tok {
+	return tok{t: token.StringContents, lit: s}
+}
+
+func tokSpace() tok {
+	return tok{t: token.StringSpace}
+}
+
+func TestScanner_Scan_ScanInString(t *testing.T) {
+	tests := []struct {
+		lit  string
+		toks []tok
+	}{
+		{`""`, tokQuotes()},
+		{`"$a$"`, tokQuotes(tokMath("$a$"))},
+		{`"a b"`, tokQuotes(tokContent("a"), tokSpace(), tokContent("b"))},
+	}
+	for _, tt := range tests {
+		t.Run(tt.lit, func(t *testing.T) {
+			// error handler
+			eh := func(_ gotok.Position, msg string) {
+				t.Errorf("error handler called (msg = %s)", msg)
+			}
+
+			// verify scanner
+			fset := gotok.NewFileSet()
+			var s Scanner
+			s.Init(fset.AddFile("", fset.Base(), len(tt.lit)), []byte(tt.lit), eh, ScanStrings)
+
+			// set up expected position
+			epos := gotok.Position{
+				Filename: "",
+				Offset:   0,
+				Line:     1,
+				Column:   1,
+			}
+
+			for i := 0; i < len(tt.toks); i++ {
+				p, tok, lit := s.Scan()
+				t.Logf("index %2d, lit: %q", i, lit)
+				etok := tt.toks[i].t
+				elit := tt.toks[i].lit
+
+				pos := fset.Position(p)
+				checkPosFilename(t, pos, epos, lit)
+				checkPosOffset(t, pos, epos, lit)
+				checkPosLine(t, pos, epos, lit)
+				checkPosToken(t, tok, etok, lit)
+
+				if lit != elit {
+					t.Errorf("bad literal for %q: got %q, expected %q", lit, lit, elit)
+				}
+
+				// update position
+				size := len(elit)
+				if size == 0 {
+					// assume if there's no literal then in it has a length of 1
+					size += 1
+				}
+				epos.Offset += size
+				epos.Line += newlineCount(elit)
+			}
+		})
+	}
+
+}
+
+func TestScanner_Scan_Errors(t *testing.T) {
 	type errorCollector struct {
 		cnt int            // number of errors encountered
 		msg string         // last error message encountered
@@ -222,6 +292,8 @@ func TestScanErrors(t *testing.T) {
 		{`,`, token.Comma, 0, ``, ""},
 		{`456`, token.Number, 0, `456`, ""},
 	}
+
+	fset := gotok.NewFileSet()
 	for _, e := range tests {
 		t.Run(e.src, func(t *testing.T) {
 			var s Scanner
@@ -254,5 +326,49 @@ func TestScanErrors(t *testing.T) {
 			}
 		})
 
+	}
+}
+
+func checkPosTokenClass(t *testing.T, tok token.Token, e tokClass, lit string) {
+	t.Helper()
+	if tokenClass(tok) != e {
+		t.Errorf("bad class for %q: got %d, expected %d", lit, tokenClass(tok), e)
+	}
+}
+
+func checkPosToken(t *testing.T, tok, expected token.Token, lit string) {
+	t.Helper()
+	if tok != expected {
+		t.Errorf("bad token for %q: got %s, expected %s", lit, tok, expected)
+	}
+}
+
+func checkPosColumn(t *testing.T, pos gotok.Position, epos gotok.Position, lit string) {
+	t.Helper()
+	if pos.Column != epos.Column {
+		t.Errorf("bad column for %q: got %d, expected %d", lit, pos.Column, epos.Column)
+	}
+}
+
+func checkPosLine(t *testing.T, pos, expected gotok.Position, lit string) {
+	t.Helper()
+	if pos.Line != expected.Line {
+		t.Errorf("bad line for %q: got %d, expected %d", lit, pos.Line, expected.Line)
+	}
+}
+
+func checkPosOffset(t *testing.T, pos, expected gotok.Position, lit string) {
+	t.Helper()
+	if pos.Offset != expected.Offset {
+		t.Errorf("bad position for %q: got %d, expected %d", lit, pos.Offset, expected.Offset)
+	}
+}
+
+func checkPosFilename(t *testing.T, pos, expected gotok.Position, lit string) {
+	t.Helper()
+	// Check cleaned filenames so that we don't have to worry about
+	// different os.PathSeparator values.
+	if pos.Filename != expected.Filename && filepath.Clean(pos.Filename) != filepath.Clean(expected.Filename) {
+		t.Errorf("bad filename for %q: got %s, expected %s", lit, pos.Filename, expected.Filename)
 	}
 }

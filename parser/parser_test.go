@@ -190,7 +190,7 @@ func bibTags(key string, val ast.Expr, rest ...interface{}) func(decl *ast.BibDe
 			panic("need string at index: " + strconv.Itoa(i))
 		}
 		if _, ok := v.(ast.Expr); !ok {
-			panic("need ast.Expr at index: " + strconv.Itoa(i+1))
+			panic(fmt.Sprintf("need ast.Expr at index: %d of bibTags, got: %v", i+1, v))
 		}
 	}
 	return func(b *ast.BibDecl) {
@@ -222,6 +222,7 @@ func TestParseFile_BibDecl(t *testing.T) {
 		{"@article {111, key = {foo} }", bibKeys("111"), bibTags("key", braceStr("foo"))},
 		{"@article {111, key = bar }", bibKeys("111"), bibTags("key", ident("bar"))},
 		{"@article {111, key = bar, extra }", bibKeys("111", "extra"), bibTags("key", ident("bar"))},
+		{`@article {111, key = bar, a, b, k2 = "v2" }`, bibKeys("111", "a", "b"), bibTags("key", ident("bar"), "k2", litStr("v2"))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {

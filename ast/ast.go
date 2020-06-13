@@ -234,9 +234,8 @@ func (f *File) End() gotok.Pos {
 // A Package node represents a set of source files collectively representing
 // a single, unified bibliography.
 type Package struct {
-	Name    string             // package name
 	Scope   *Scope             // package scope across all files
-	Imports map[string]*Object // map of package id -> package object
+	Objects map[string]*Object // map of package id -> package object
 	Files   map[string]*File   // Go source files by filename
 }
 

@@ -14,6 +14,10 @@ import (
 	"github.com/jschaf/b2/pkg/bibtex/token"
 )
 
+const (
+	eof = -1
+)
+
 // An ErrorHandler may be provided to Scanner.Init. If a syntax error is
 // encountered and a handler was installed, the handler is called with a
 // position and an error message. The position points to the beginning of
@@ -37,6 +41,8 @@ type Scanner struct {
 	rdOffset   int         // reading offset (position after current character)
 	lineOffset int         // current line offset
 	prev       token.Token // previous token
+	endQuoteCh rune        // '"' or '}'
+	braceDepth int         // the brace depth in a string; starts at 0
 
 	// public state - ok to modify
 	ErrorCount int // number of errors encountered
@@ -72,7 +78,7 @@ func (s *Scanner) next() {
 			s.lineOffset = s.offset
 			s.file.AddLine(s.offset)
 		}
-		s.ch = -1 // eof
+		s.ch = eof
 	}
 }
 
@@ -100,6 +106,7 @@ type Mode uint
 
 const (
 	ScanComments Mode = 1 << iota // return comments as Comment or TexComment tokens
+	ScanStrings                   // tokenize the contents of bibtex strings
 )
 
 // Init prepares the scanner s to tokenize the text src by setting the
@@ -266,6 +273,84 @@ func (s *Scanner) scanTexComment() string {
 	return string(s.src[offs:s.offset])
 }
 
+func (s *Scanner) scanStringMath() string {
+	offs := s.offset
+	s.next() // consume opening '$'
+	for s.ch != '$' {
+		if s.ch < 0 {
+			s.error(offs, "math in string literal not terminated")
+			break
+		}
+		s.next()
+	}
+	s.next() // consume closing '$'
+	return string(s.src[offs:s.offset])
+}
+
+func isSpecialStringChar(ch rune) bool {
+	return ch == '$' || ch == '"' || ch == '}' || ch == ' ' || ch == eof
+}
+
+func (s *Scanner) scanStringContents() string {
+	offs := s.offset
+	for !isSpecialStringChar(s.ch) {
+		s.next()
+	}
+	return string(s.src[offs:s.offset])
+}
+
+func (s *Scanner) scanInString() (pos gotok.Pos, tok token.Token, lit string) {
+	if s.endQuoteCh == 0 {
+		panic("called scanInString but not in quote")
+	}
+
+	pos = s.file.Pos(s.offset)
+
+	if !isSpecialStringChar(s.ch) {
+		tok = token.StringContents
+		lit = s.scanStringContents()
+		return
+	}
+
+	// It's a special char.
+	switch ch := s.ch; ch {
+	case '$':
+		tok = token.Math
+		lit = s.scanStringMath()
+
+	case '"':
+		if s.endQuoteCh == '"' {
+			s.endQuoteCh = 0
+			tok = token.DoubleQuote
+		} else {
+			tok = token.StringContents
+			lit = `"`
+		}
+
+	case '}':
+		if s.endQuoteCh == '}' {
+			s.endQuoteCh = 0
+			tok = token.StringRBrace
+		} else {
+			tok = token.StringContents
+			lit = `}`
+		}
+
+	case ' ', '\r', '\n', '\t':
+		tok = token.StringSpace
+		s.skipWhitespace()
+
+	default:
+		// next reports unexpected BOMs - don't repeat
+		if ch != bom {
+			s.errorf(s.file.Offset(pos), "illegal character %#U in string", ch)
+		}
+		tok = token.Illegal
+		lit = string(ch)
+	}
+	return
+}
+
 // Scan scans the next token and returns the token position, the token, and its
 // literal string if applicable. The source end is indicated by token.EOF.
 //
@@ -286,8 +371,11 @@ func (s *Scanner) scanTexComment() string {
 // Scan adds line information to the file with Init. Token positions are
 // relative to the file.
 func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
-	s.skipWhitespace()
+	if s.endQuoteCh == '}' || s.endQuoteCh == '"' {
+		return s.scanInString()
+	}
 
+	s.skipWhitespace()
 	pos = s.file.Pos(s.offset)
 
 	switch ch := s.ch; {
@@ -305,8 +393,13 @@ func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
 		case -1:
 			tok = token.EOF
 		case '"':
-			tok = token.String
-			lit = s.scanString()
+			if s.mode&ScanStrings != 0 {
+				s.endQuoteCh = '"'
+				tok = token.DoubleQuote
+			} else {
+				tok = token.String
+				lit = s.scanString()
+			}
 		case ',':
 			tok = token.Comma
 		case '=':

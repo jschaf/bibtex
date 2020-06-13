@@ -4,7 +4,7 @@ package parser
 import (
 	"bytes"
 	"errors"
-	"go/token"
+	gotok "go/token"
 	"io"
 	"io/ioutil"
 
@@ -66,7 +66,7 @@ const (
 // errors were found, the result is a partial AST (with ast.Bad* nodes
 // representing the fragments of erroneous source code). Multiple errors
 // are returned via a scanner.ErrorList which is sorted by source position.
-func ParseFile(fset *token.FileSet, filename string, src interface{}, mode Mode) (f *ast.File, err error) {
+func ParseFile(fset *gotok.FileSet, filename string, src interface{}, mode Mode) (f *ast.File, err error) {
 	if fset == nil {
 		panic("parser.ParseFile: no token.FileSet provided (fset == nil)")
 	}
@@ -105,5 +105,24 @@ func ParseFile(fset *token.FileSet, filename string, src interface{}, mode Mode)
 	p.init(fset, filename, text, mode)
 	f = p.parseFile()
 
+	return
+}
+
+// ParsePackage calls ParseFile for all files specified by paths.
+//
+// The mode bits are passed to ParseFile unchanged.
+//
+// If a parse error occurred, an incomplete package and the first error
+// encountered are returned.
+func ParsePackage(paths []string, mode Mode) (pkg *ast.Package, first error) {
+	fset := gotok.NewFileSet()
+	pkg = &ast.Package{}
+	for _, filename := range paths {
+		if src, err := ParseFile(fset, filename, nil, mode); err == nil {
+			pkg.Files[filename] = src
+		} else if first == nil {
+			first = err
+		}
+	}
 	return
 }
