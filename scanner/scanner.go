@@ -274,8 +274,7 @@ func (s *Scanner) scanTexComment() string {
 }
 
 func (s *Scanner) scanStringMath() string {
-	offs := s.offset
-	s.next() // consume opening '$'
+	offs := s.offset - 1 // already consume opening '$'
 	for s.ch != '$' {
 		if s.ch < 0 {
 			s.error(offs, "math in string literal not terminated")
@@ -288,7 +287,8 @@ func (s *Scanner) scanStringMath() string {
 }
 
 func isSpecialStringChar(ch rune) bool {
-	return ch == '$' || ch == '"' || ch == '}' || ch == ' ' || ch == eof
+	return ch == '$' || ch == '"' || ch == '{' || ch == '}' || ch == ' ' ||
+		ch == eof || ch == ',' || ch == '~'
 }
 
 func (s *Scanner) scanStringContents() string {
@@ -303,9 +303,7 @@ func (s *Scanner) scanInString() (pos gotok.Pos, tok token.Token, lit string) {
 	if s.endQuoteCh == 0 {
 		panic("called scanInString but not in quote")
 	}
-
 	pos = s.file.Pos(s.offset)
-
 	if !isSpecialStringChar(s.ch) {
 		tok = token.StringContents
 		lit = s.scanStringContents()
@@ -313,33 +311,37 @@ func (s *Scanner) scanInString() (pos gotok.Pos, tok token.Token, lit string) {
 	}
 
 	// It's a special char.
-	switch ch := s.ch; ch {
+	ch := s.ch
+	s.next()
+	switch ch {
 	case '$':
-		tok = token.Math
+		tok = token.StringMath
 		lit = s.scanStringMath()
-
 	case '"':
-		if s.endQuoteCh == '"' {
+		if s.endQuoteCh == '"' && s.braceDepth == 0 {
 			s.endQuoteCh = 0
 			tok = token.DoubleQuote
 		} else {
 			tok = token.StringContents
 			lit = `"`
 		}
-
+	case '{':
+		s.braceDepth += 1
+		tok = token.StringLBrace
 	case '}':
-		if s.endQuoteCh == '}' {
+		tok = token.StringRBrace
+		if s.endQuoteCh == '}' && s.braceDepth == 0 {
 			s.endQuoteCh = 0
-			tok = token.StringRBrace
 		} else {
-			tok = token.StringContents
-			lit = `}`
+			s.braceDepth -= 1
 		}
-
 	case ' ', '\r', '\n', '\t':
 		tok = token.StringSpace
 		s.skipWhitespace()
-
+	case ',':
+		tok = token.StringComma
+	case '~':
+		tok = token.StringNBSP
 	default:
 		// next reports unexpected BOMs - don't repeat
 		if ch != bom {
@@ -422,8 +424,13 @@ func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
 			// preceded by an LBrace, it's a value in a block like:
 			//   @preamble { {foo} }
 			if s.prev == token.Assign || s.prev == token.LBrace {
-				tok = token.BraceString
-				lit = s.scanBraceString()
+				if s.mode&ScanStrings != 0 {
+					s.endQuoteCh = '}'
+					tok = token.StringLBrace
+				} else {
+					tok = token.BraceString
+					lit = s.scanBraceString()
+				}
 			} else {
 				tok = token.LBrace
 			}

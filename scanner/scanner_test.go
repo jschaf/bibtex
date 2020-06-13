@@ -3,6 +3,7 @@ package scanner
 import (
 	gotok "go/token"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/jschaf/b2/pkg/bibtex/token"
@@ -179,49 +180,94 @@ func TestScanner_Scan(t *testing.T) {
 	}
 }
 
-type tok struct {
+type stringTok struct {
 	t   token.Token
 	lit string
+	raw string
 }
 
-func tokDQ() tok {
-	return tok{
-		t: token.DoubleQuote,
+func (st stringTok) newlineCount() int {
+	return newlineCount(st.raw)
+}
+
+func (st stringTok) size() int {
+	return len(st.raw)
+}
+
+func tok(s string) stringTok {
+	switch {
+	case strings.TrimSpace(s) == "":
+		return stringTok{t: token.StringSpace, lit: "", raw: s}
+	case s == `"`:
+		return stringTok{t: token.StringContents, lit: `"`, raw: `"`}
+	case s == ",":
+		return stringTok{t: token.StringComma, lit: "", raw: ","}
+	case s == "~":
+		return stringTok{t: token.StringNBSP, lit: "", raw: "~"}
+	case s == "{":
+		return stringTok{t: token.StringLBrace, lit: "", raw: "{"}
+	case s == "}":
+		return stringTok{t: token.StringRBrace, lit: "", raw: "}"}
+	case strings.HasPrefix(s, "$"):
+		if !strings.HasSuffix(s, "$") {
+			panic("tok begins with $ but doesn't end with $")
+		}
+		return stringTok{t: token.StringMath, lit: s, raw: s}
+	default:
+		return stringTok{t: token.StringContents, lit: s, raw: s}
 	}
 }
 
-func tokQuotes(t ...tok) []tok {
-	ts := make([]tok, len(t)+2)
-	ts[0] = tok{t: token.DoubleQuote}
+// toks returns a slice of stringTok by converting each string t into a
+// a stringTok via the tok function.
+func toks(t ...string) []stringTok {
+	ts := make([]stringTok, len(t))
 	for i := 0; i < len(t); i++ {
-		ts[i+1] = t[i]
+		ts[i] = tok(t[i])
 	}
-	ts[len(t)+1] = tok{t: token.DoubleQuote}
 	return ts
 }
 
-func tokMath(s string) tok {
-	return tok{t: token.Math, lit: s}
-}
-
-func tokContent(s string) tok {
-	return tok{t: token.StringContents, lit: s}
-}
-
-func tokSpace() tok {
-	return tok{t: token.StringSpace}
-}
-
-func TestScanner_Scan_ScanInString(t *testing.T) {
-	tests := []struct {
+func TestScanner_Scan_scanInString(t *testing.T) {
+	const wSpace = " \n \r \t "
+	type testCase struct {
 		lit  string
-		toks []tok
-	}{
-		{`""`, tokQuotes()},
-		{`"$a$"`, tokQuotes(tokMath("$a$"))},
-		{`"a b"`, tokQuotes(tokContent("a"), tokSpace(), tokContent("b"))},
+		toks []stringTok
 	}
-	for _, tt := range tests {
+	tests := []testCase{
+		{"", toks()},
+		{"$a$", toks("$a$")},
+		{"a" + wSpace + "b", toks("a", wSpace, "b")},
+		{"a,b", toks("a", ",", "b")},
+		{"a~b", toks("a", "~", "b")},
+		{"a{\"}b", toks("a", "{", `"`, "}", "b")},
+		{"{Fo}o", toks("{", `Fo`, "}", "o")},
+	}
+
+	// Surround each test with both double quotes and braces.
+	allTests := make([]testCase, 2*len(tests))
+	for i, test := range tests {
+		qs := make([]stringTok, len(test.toks)+2)
+		qs[0] = stringTok{t: token.DoubleQuote, lit: "", raw: `"`}
+		copy(qs[1:], test.toks)
+		qs[len(test.toks)+1] = stringTok{t: token.DoubleQuote, lit: "", raw: `"`}
+		allTests[i] = testCase{
+			lit:  `"` + test.lit + `"`,
+			toks: qs,
+		}
+
+		bs := make([]stringTok, len(test.toks)+3)
+		bs[0] = stringTok{t: token.Assign, lit: "", raw: "="}
+		bs[1] = tok("{")
+		copy(bs[2:], test.toks)
+		bs[len(test.toks)+2] = tok("}")
+		allTests[i+len(tests)] = testCase{
+			lit:  `={` + test.lit + `}`,
+			toks: bs,
+		}
+	}
+
+	for _, tt := range allTests {
 		t.Run(tt.lit, func(t *testing.T) {
 			// error handler
 			eh := func(_ gotok.Position, msg string) {
@@ -243,28 +289,23 @@ func TestScanner_Scan_ScanInString(t *testing.T) {
 
 			for i := 0; i < len(tt.toks); i++ {
 				p, tok, lit := s.Scan()
-				t.Logf("index %2d, lit: %q", i, lit)
-				etok := tt.toks[i].t
-				elit := tt.toks[i].lit
-
+				eTok := tt.toks[i]
+				t.Logf("index %2d, raw: %q, lit: %q, got: %s, expect: %s",
+					i, eTok.raw, lit, tok, eTok.t)
 				pos := fset.Position(p)
 				checkPosFilename(t, pos, epos, lit)
 				checkPosOffset(t, pos, epos, lit)
+				// skip column check because no easy way to figure out expected column
 				checkPosLine(t, pos, epos, lit)
-				checkPosToken(t, tok, etok, lit)
+				checkPosToken(t, tok, eTok.t, lit)
 
-				if lit != elit {
-					t.Errorf("bad literal for %q: got %q, expected %q", lit, lit, elit)
+				if lit != eTok.lit {
+					t.Errorf("bad literal for %q: got %q, expected %q",
+						eTok.raw, lit, eTok.lit)
 				}
 
-				// update position
-				size := len(elit)
-				if size == 0 {
-					// assume if there's no literal then in it has a length of 1
-					size += 1
-				}
-				epos.Offset += size
-				epos.Line += newlineCount(elit)
+				epos.Offset += eTok.size()
+				epos.Line += eTok.newlineCount()
 			}
 		})
 	}

@@ -33,7 +33,7 @@ const (
 	Number      // 2005
 	literalEnd
 
-	// Tokens delimiting or contained in a bibtex string literal.
+	// Tokens delimiting strings or contained in a bibtex string literal.
 	stringLiteralBegin
 	DoubleQuote    // " - delimits a string
 	StringLBrace   // {
@@ -43,7 +43,8 @@ const (
 	StringContents // anything inside a string
 	Hyphen         // - a hyphen counts as a token separator when parsing names
 	SpecialToken   // {\ <anything } - any LBrace followed by a backslash through the RBrace
-	Math           // $<anything>$
+	StringMath     // $...$
+	StringComma    // , - useful for parsing author names
 	stringLiteralEnd
 
 	// Operators and delimiters.
@@ -84,7 +85,8 @@ var tokens = [...]string{
 	StringContents: "StringContents",
 	Hyphen:         "Hyphen",
 	SpecialToken:   "SpecialToken",
-	Math:           "Math",
+	StringMath:     "StringMath",
+	StringComma:    "StringComma",
 
 	// Operators and delimiters
 	Assign: "Assign",
