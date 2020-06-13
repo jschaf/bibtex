@@ -230,7 +230,7 @@ func tok(s string) stringTok {
 		if !strings.HasSuffix(s, "$") {
 			panic("tok begins with $ but doesn't end with $")
 		}
-		return stringTok{t: token.StringMath, lit: s, raw: s}
+		return stringTok{t: token.StringMath, lit: s[1 : len(s)-1], raw: s}
 	default:
 		return stringTok{t: token.StringContents, lit: s, raw: s}
 	}

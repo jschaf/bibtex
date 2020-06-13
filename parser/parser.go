@@ -49,7 +49,10 @@ func (p *parser) init(fset *gotok.FileSet, filename string, src []byte, mode Mod
 	p.file = fset.AddFile(filename, -1, len(src))
 	var m scanner.Mode
 	if mode&ParseComments != 0 {
-		m = scanner.ScanComments
+		m |= scanner.ScanComments
+	}
+	if mode&ParseStrings != 0 {
+		m |= scanner.ScanStrings
 	}
 	eh := func(pos gotok.Position, msg string) { p.errors.Add(pos, msg) }
 	p.scanner.Init(p.file, src, eh, m)
@@ -350,18 +353,28 @@ func isValidTagName(key *ast.Ident) bool {
 	return ('a' <= ch && ch <= 'z') || ('A' <= ch && ch <= 'Z')
 }
 
-func (p *parser) parseBasicLit() (l *ast.BasicLit) {
-	switch {
-	case p.tok.IsLiteral():
-		l = &ast.BasicLit{
+func (p *parser) parseBasicLit() (l ast.Expr) {
+	switch p.tok {
+	case token.BraceString, token.String:
+		l = &ast.UnparsedText{
 			ValuePos: p.pos,
 			Kind:     p.tok,
 			Value:    p.lit,
 		}
+		p.next()
+	case token.Number:
+		l = &ast.Number{
+			ValuePos: p.pos,
+			Value:    p.lit,
+		}
+		p.next()
+
+	case token.Ident:
+		l = p.parseIdent()
+
 	default:
 		p.errorExpected(p.pos, "literal: number or string")
 	}
-	p.next()
 	return
 }
 

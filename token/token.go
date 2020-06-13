@@ -40,9 +40,9 @@ const (
 	StringRBrace   // }
 	StringSpace    // any consecutive whitespace '\n', '\r', '\t', ' ' in a bibtex string
 	StringNBSP     // ~ - non-breakable space in LaTeX
-	StringContents // anything inside a string
-	Hyphen         // - a hyphen counts as a token separator when parsing names
-	SpecialToken   // {\ <anything } - any LBrace followed by a backslash through the RBrace
+	StringContents // anything else inside a string
+	StringHyphen   // - a hyphen counts as a token separator when parsing names
+	StringSpecial  // {\...} - any LBrace followed by a backslash through the RBrace
 	StringMath     // $...$
 	StringComma    // , - useful for parsing author names
 	stringLiteralEnd
@@ -83,8 +83,8 @@ var tokens = [...]string{
 	StringSpace:    "StringSpace",
 	StringNBSP:     "NBSP",
 	StringContents: "StringContents",
-	Hyphen:         "Hyphen",
-	SpecialToken:   "SpecialToken",
+	StringHyphen:   "StringHyphen",
+	StringSpecial:  "StringSpecial",
 	StringMath:     "StringMath",
 	StringComma:    "StringComma",
 

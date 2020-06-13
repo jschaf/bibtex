@@ -274,7 +274,7 @@ func (s *Scanner) scanTexComment() string {
 }
 
 func (s *Scanner) scanStringMath() string {
-	offs := s.offset - 1 // already consume opening '$'
+	offs := s.offset
 	for s.ch != '$' {
 		if s.ch < 0 {
 			s.error(offs, "math in string literal not terminated")
@@ -283,7 +283,7 @@ func (s *Scanner) scanStringMath() string {
 		s.next()
 	}
 	s.next() // consume closing '$'
-	return string(s.src[offs:s.offset])
+	return string(s.src[offs : s.offset-1])
 }
 
 func isSpecialStringChar(ch rune) bool {

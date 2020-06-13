@@ -56,6 +56,16 @@ func (g *TexCommentGroup) End() gotok.Pos { return g.List[len(g.List)-1].End() }
 // ----------------------------------------------------------------------------
 // Expressions
 
+type StringKind int
+
+const (
+	Content StringKind = iota
+	Space
+	NBSP
+	Comma
+	Math
+)
+
 // An expression is represented by a tree consisting of one or more of the
 // following concrete expressions.
 type (
@@ -73,11 +83,40 @@ type (
 		Obj     *Object   // denoted object; or nil
 	}
 
-	// A BasicLit node represents literals of basic type.
-	BasicLit struct {
+	// A Number node represents an unquoted number.
+	Number struct {
+		ValuePos gotok.Pos
+		Value    string
+	}
+
+	// An UnparsedText is a bibtex string as it appears in source. Only appears
+	// when Mode.ParseStrings is passed to ParseFile.
+	UnparsedText struct {
 		ValuePos gotok.Pos   // literal position
-		Kind     token.Token // token.Number, token.String, token.BraceString
-		Value    string      // literal string, e.g. 42, "foo", {bar}
+		Kind     token.Token // token.String or token.BraceString
+		Value    string      // excluding delimiters
+	}
+
+	// A ParsedText node represents a parsed bibtex string.
+	ParsedText struct {
+		Open   gotok.Pos   // opening delimiter
+		Kind   token.Token // token.String or token.BraceString
+		Values []Expr      // Text or BraceText
+	}
+
+	// A BraceText node represents a brace delimited substring inside a
+	// ParsedText. For example, the "{baz}" below:
+	//   foo = {qux {baz}}
+	BraceText struct {
+		Depth  int    // the brace depth; starts at 1 because the 0th layer is ParsedText
+		Values []Expr // Text or BraceText
+	}
+
+	// A Text node represents a piece of ParsedText.
+	Text struct {
+		ValuePos gotok.Pos // literal position
+		Kind     StringKind
+		Value    string // excludes delimiters for Math
 	}
 
 	// A ConcatExpr node represents a bibtex concatenation like:
@@ -97,9 +136,22 @@ func (x *Ident) Pos() gotok.Pos { return x.NamePos }
 func (x *Ident) End() gotok.Pos { return gotok.Pos(int(x.NamePos) + len(x.Name)) }
 func (*Ident) exprNode()        {}
 
-func (x *BasicLit) Pos() gotok.Pos { return x.ValuePos }
-func (x *BasicLit) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
-func (*BasicLit) exprNode()        {}
+func (x *Number) Pos() gotok.Pos { return x.ValuePos }
+func (x *Number) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
+func (*Number) exprNode()        {}
+
+func (x *UnparsedText) Pos() gotok.Pos { return x.ValuePos }
+func (x *UnparsedText) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
+func (*UnparsedText) exprNode()        {}
+
+func (x *ParsedText) Pos() gotok.Pos { return x.Open }
+func (x *ParsedText) End() gotok.Pos {
+	if len(x.Values) > 0 {
+		return x.Values[len(x.Values)-1].Pos()
+	}
+	return x.Open
+}
+func (*ParsedText) exprNode() {}
 
 func (x *ConcatExpr) Pos() gotok.Pos { return x.X.Pos() }
 func (x *ConcatExpr) End() gotok.Pos { return x.Y.Pos() }
