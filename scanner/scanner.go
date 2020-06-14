@@ -287,8 +287,10 @@ func (s *Scanner) scanStringMath() string {
 }
 
 func isSpecialStringChar(ch rune) bool {
-	return ch == '$' || ch == '"' || ch == '{' || ch == '}' || ch == ' ' ||
-		ch == eof || ch == ',' || ch == '~'
+	return ch == '$' || ch == '"' || ch == '{' || ch == '}' ||
+		ch == eof || ch == ',' ||
+		ch == '~' || // nbsp
+		ch == '\n' || ch == '\r' || ch == ' ' || ch == '\t' // white space
 }
 
 func (s *Scanner) scanStringContents() string {

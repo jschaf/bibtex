@@ -1,10 +1,9 @@
 package parser
 
 import (
-	"fmt"
+	"github.com/jschaf/b2/pkg/bibtex/asts"
 	gotok "go/token"
 	"io/ioutil"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -15,7 +14,7 @@ import (
 
 func cmpExpr() cmp.Option {
 	return cmp.Transformer("expr_name", func(x ast.Expr) string {
-		return exprString(x)
+		return asts.ExprString(x)
 	})
 }
 
@@ -25,114 +24,9 @@ func cmpIdentName() cmp.Option {
 	})
 }
 
-func exprString(x ast.Expr) string {
-	switch v := x.(type) {
-	case *ast.Ident:
-		return "Ident(" + v.Name + ")"
-	case *ast.Number:
-		return "Number(" + v.Value + ")"
-	case *ast.UnparsedText:
-		if v.Kind == token.String {
-			return "UnparsedText(\"" + v.Value + "\")"
-		} else {
-			return "UnparsedText({" + v.Value + "})"
-		}
-	case *ast.Text:
-		return "Text[" + v.Kind.String() + "](" + v.Value + ")"
-
-	case *ast.ParsedText:
-		sb := strings.Builder{}
-		sb.WriteString("ParsedText[" + strconv.Itoa(v.Depth) + "]")
-		if v.Delim == ast.QuoteDelimiter {
-			sb.WriteString(`"`)
-		} else {
-			sb.WriteString("{")
-		}
-		for i, val := range v.Values {
-			sb.WriteString(exprString(val))
-			if i < len(v.Values)-1 {
-				sb.WriteString(", ")
-			}
-		}
-		if v.Delim == ast.QuoteDelimiter {
-			sb.WriteString(`")`)
-		} else {
-			sb.WriteString("})")
-		}
-		return sb.String()
-
-	case *ast.ConcatExpr:
-		return exprString(v.X) + " # " + exprString(v.Y)
-
-	default:
-		return fmt.Sprintf("UnknownExpr(%v)", v)
-	}
-}
-
-func concat(x, y ast.Expr) ast.Expr {
-	return &ast.ConcatExpr{X: x, Y: y}
-}
-
-func unparsedBraceText(s string) ast.Expr {
-	return &ast.UnparsedText{
-		Kind:  token.BraceString,
-		Value: s,
-	}
-}
-
-// bText return parsed text delimited by braces.
-func bText(depth int, ss ...ast.Expr) ast.Expr {
-	return &ast.ParsedText{
-		Depth:  depth,
-		Delim:  ast.BraceDelimiter,
-		Values: ss,
-	}
-}
-
-// qText return parsed text delimited by quotes.
-func qText(depth int, ss ...ast.Expr) ast.Expr {
-	return &ast.ParsedText{
-		Depth:  depth,
-		Delim:  ast.QuoteDelimiter,
-		Values: ss,
-	}
-}
-
-func text(kind ast.TextKind, s string) *ast.Text {
-	return &ast.Text{
-		Kind:  kind,
-		Value: s,
-	}
-}
-
-func txt(s string) *ast.Text {
-	return &ast.Text{
-		Kind:  ast.TextContent,
-		Value: s,
-	}
-}
-
-func wSpace() *ast.Text {
-	return &ast.Text{Kind: ast.TextSpace}
-}
-
-func unparsedText(s string) ast.Expr {
-	return &ast.UnparsedText{
-		Kind:  token.String,
-		Value: s,
-	}
-}
-
-func ident(s string) ast.Expr {
-	return &ast.Ident{
-		Name: s,
-		Obj:  nil,
-	}
-}
-
 func cmpTagEntry() cmp.Option {
 	return cmp.Transformer("tag_entry", func(t *ast.TagStmt) string {
-		return t.RawName + " = " + exprString(t.Value)
+		return t.RawName + " = " + asts.ExprString(t.Value)
 	})
 }
 
@@ -170,12 +64,12 @@ func TestParseFile_PreambleDecl(t *testing.T) {
 		src  string
 		want ast.Expr
 	}{
-		{"@PREAMBLE { {foo} }", unparsedBraceText("foo")},
-		{`@PREAMBLE { "foo" }`, unparsedText("foo")},
-		{`@PREAMBLE ( "foo" )`, unparsedText("foo")},
-		{`@preamble { "foo" }`, unparsedText("foo")},
-		{`@preamble { "foo" # "bar" }`, concat(unparsedText("foo"), unparsedText("bar"))},
-		{`@preamble { "foo" # "bar" # "qux" }`, concat(unparsedText("foo"), concat(unparsedText("bar"), unparsedText("qux")))},
+		{"@PREAMBLE { {foo} }", asts.UnparsedBraceText("foo")},
+		{`@PREAMBLE { "foo" }`, asts.UnparsedText("foo")},
+		{`@PREAMBLE ( "foo" )`, asts.UnparsedText("foo")},
+		{`@preamble { "foo" }`, asts.UnparsedText("foo")},
+		{`@preamble { "foo" # "bar" }`, asts.Concat(asts.UnparsedText("foo"), asts.UnparsedText("bar"))},
+		{`@preamble { "foo" # "bar" # "qux" }`, asts.Concat(asts.UnparsedText("foo"), asts.Concat(asts.UnparsedText("bar"), asts.UnparsedText("qux")))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -200,9 +94,9 @@ func TestParseFile_AbbrevDecl(t *testing.T) {
 		wantKey string
 		wantVal ast.Expr
 	}{
-		{"@string { key = {foo} }", token.BraceString, "key", unparsedBraceText("foo")},
-		{"@string { KeY = {foo} }", token.BraceString, "KeY", unparsedBraceText("foo")},
-		{`@string { KeY = "foo" }`, token.String, "KeY", unparsedText("foo")},
+		{"@string { key = {foo} }", token.BraceString, "key", asts.UnparsedBraceText("foo")},
+		{"@string { KeY = {foo} }", token.BraceString, "KeY", asts.UnparsedBraceText("foo")},
+		{`@string { KeY = "foo" }`, token.String, "KeY", asts.UnparsedText("foo")},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -225,62 +119,30 @@ func TestParseFile_AbbrevDecl(t *testing.T) {
 	}
 }
 
-func bibKeys(ts ...string) func(decl *ast.BibDecl) {
-	return func(b *ast.BibDecl) {
-		if len(ts) > 0 {
-			b.Key = &ast.Ident{Name: ts[0]}
-			ts = ts[1:]
-		}
-		for _, k := range ts {
-			b.ExtraKeys = append(b.ExtraKeys, &ast.Ident{Name: k})
-		}
-	}
-}
-
-func bibTags(key string, val ast.Expr, rest ...interface{}) func(decl *ast.BibDecl) {
-	if len(rest)%2 != 0 {
-		panic("bibTags must have even number of strings for key-val pairs")
-	}
-	for i := 0; i < len(rest); i += 2 {
-		k := rest[i]
-		v := rest[i+1]
-		if _, ok := k.(string); !ok {
-			panic("need string at index: " + strconv.Itoa(i))
-		}
-		if _, ok := v.(ast.Expr); !ok {
-			panic(fmt.Sprintf("need ast.Expr at index: %d of bibTags, got: %v", i+1, v))
-		}
-	}
-	return func(b *ast.BibDecl) {
-		b.Tags = append(b.Tags, &ast.TagStmt{
-			Name:    key,
-			RawName: key,
-			Value:   val,
-		})
-		for i := 0; i < len(rest); i += 2 {
-			k, v := rest[i].(string), rest[i+1].(ast.Expr)
-			tag := &ast.TagStmt{
-				Name:    k,
-				RawName: k,
-				Value:   v,
-			}
-			b.Tags = append(b.Tags, tag)
-		}
-	}
-}
-
 func TestParseFile_BibDecl(t *testing.T) {
 	tests := []struct {
 		src    string
 		keysFn func(*ast.BibDecl)
 		tagsFn func(*ast.BibDecl)
 	}{
-		{"@article { cite_key, key = {foo} }", bibKeys("cite_key"), bibTags("key", unparsedBraceText("foo"))},
-		{"@article {cite_key1, key = {foo} }", bibKeys("cite_key1"), bibTags("key", unparsedBraceText("foo"))},
-		{"@article {111, key = {foo} }", bibKeys("111"), bibTags("key", unparsedBraceText("foo"))},
-		{"@article {111, key = bar }", bibKeys("111"), bibTags("key", ident("bar"))},
-		{"@article {111, key = bar, extra }", bibKeys("111", "extra"), bibTags("key", ident("bar"))},
-		{`@article {111, key = bar, a, b, k2 = "v2" }`, bibKeys("111", "a", "b"), bibTags("key", ident("bar"), "k2", unparsedText("v2"))},
+		{"@article { cite_key, key = {foo} }",
+			asts.WithBibKeys("cite_key"),
+			asts.WithBibTags("key", asts.UnparsedBraceText("foo"))},
+		{"@article {cite_key1, key = {foo} }",
+			asts.WithBibKeys("cite_key1"),
+			asts.WithBibTags("key", asts.UnparsedBraceText("foo"))},
+		{"@article {111, key = {foo} }",
+			asts.WithBibKeys("111"),
+			asts.WithBibTags("key", asts.UnparsedBraceText("foo"))},
+		{"@article {111, key = bar }",
+			asts.WithBibKeys("111"),
+			asts.WithBibTags("key", asts.Ident("bar"))},
+		{"@article {111, key = bar, extra }",
+			asts.WithBibKeys("111", "extra"),
+			asts.WithBibTags("key", asts.Ident("bar"))},
+		{`@article {111, key = bar, a, b, k2 = "v2" }`,
+			asts.WithBibKeys("111", "a", "b"),
+			asts.WithBibTags("key", asts.Ident("bar"), "k2", asts.UnparsedText("v2"))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -310,12 +172,28 @@ func TestParseFile_BibDecl_ModeParseStrings(t *testing.T) {
 		keysFn func(*ast.BibDecl)
 		tagsFn func(*ast.BibDecl)
 	}{
-		{"@article { cite_key, key = {foo} }", bibKeys("cite_key"), bibTags("key", bText(0, txt("foo")))},
-		{"@article { cite_key, key = {{f}oo}}", bibKeys("cite_key"), bibTags("key", bText(0, bText(1, txt("f")), txt("oo")))},
-		{`@article { cite_key, key = "foo" }`, bibKeys("cite_key"), bibTags("key", qText(0, txt("foo")))},
+		{"@article { cite_key, key = {foo} }",
+			asts.WithBibKeys("cite_key"),
+			asts.WithBibTags("key", asts.BraceText(0, "foo"))},
+		{"@article { cite_key, key = {{f}oo}}",
+			asts.WithBibKeys("cite_key"),
+			asts.WithBibTags("key", asts.BraceText(0, "{f}", "oo"))},
+		{`@article { cite_key, key = {{\textsc f}oo}}`,
+			asts.WithBibKeys("cite_key"),
+			asts.WithBibTags("key", asts.BraceText(0, `{\textsc f}`, "oo"))},
+		{`@article { cite_key, key = "foo" }`,
+			asts.WithBibKeys("cite_key"),
+			asts.WithBibTags("key", asts.QuotedText(0, "foo"))},
 		{"@article { cite_key, key = {f\no\ro} }",
-			bibKeys("cite_key"),
-			bibTags("key", bText(0, txt("f"), wSpace(), txt("o"), wSpace(), txt("o")))},
+			asts.WithBibKeys("cite_key"),
+			asts.WithBibTags("key", asts.BraceText(0, "f", " ", "o", " ", "o"))},
+		{`@article{cite_key, 
+		   howPublished = "\url{http://example.com/foo-bar/~baz/}"
+		  }`,
+			asts.WithBibKeys("cite_key"),
+			asts.WithBibTags("howPublished",
+				asts.QuotedTextExpr(0, asts.Text(`\url`),
+					asts.BraceTextExpr(1, asts.Text("http://example.com/foo-bar/"), asts.NBSP(), asts.Text("baz/"))))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -334,6 +212,28 @@ func TestParseFile_BibDecl_ModeParseStrings(t *testing.T) {
 			}
 			if diff := cmp.Diff(wantBib.Tags, gotBib.Tags, cmpTagEntry()); diff != "" {
 				t.Errorf("BibDecl keys mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestParseExpr_BibDecl_ModeParseStrings(t *testing.T) {
+	tests := []struct {
+		src  string
+		want ast.Expr
+	}{
+		{"{foo}", asts.BraceText(0, "foo")},
+		{`"foo"`, asts.QuotedText(0, "foo")},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			got, err := ParseExpr(tt.src)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if diff := cmp.Diff(tt.want, got, cmpExpr()); diff != "" {
+				t.Errorf("ParseExpr mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

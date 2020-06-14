@@ -29,9 +29,9 @@ const (
 // - https://metacpan.org/pod/distribution/Text-BibTeX/btparse/doc/bt_split_names.pod
 // - https://nzhagen.github.io/bibulous/developer_guide.html#name-formatting
 type Author struct {
-	First  string // aka given name
+	First  string // given name
 	Prefix string // often called the 'von' part
-	Last   string // aka family name
+	Last   string // family name
 	Suffix string // often called the 'jr' part
 }
 

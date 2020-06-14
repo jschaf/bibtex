@@ -108,6 +108,22 @@ func ParseFile(fset *gotok.FileSet, filename string, src interface{}, mode Mode)
 	return
 }
 
+func ParseExpr(str string) (ast.Expr, error) {
+	fset := gotok.NewFileSet()
+	// use '=' to trick parser into treating '{' as a string
+	src := []byte("=" + str)
+	var p parser
+	p.init(fset, "", src, ParseStrings)
+	p.next() // consume the '='
+	expr := p.parseExpr()
+	p.errors.Sort()
+	err := p.errors.Err()
+	if err != nil {
+		return nil, err
+	}
+	return expr, nil
+}
+
 // ParsePackage calls ParseFile for all files specified by paths.
 //
 // The mode bits are passed to ParseFile unchanged.

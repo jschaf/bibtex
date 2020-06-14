@@ -255,7 +255,8 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 	tests := []testCase{
 		{"", toks()},
 		{"$a$", toks("$a$")},
-		{"a" + wSpace + "b", toks("a", wSpace, "b")},
+		{"a \n \r \t b", toks("a", " \n \r \t ", "b")},
+		{"a\nb", toks("a", "\n", "b")},
 		{"a,b", toks("a", ",", "b")},
 		{"a~b", toks("a", "~", "b")},
 		{`a{"}b`, toks("a", "{", `"`, "}", "b")},
