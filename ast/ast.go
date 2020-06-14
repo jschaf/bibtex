@@ -251,6 +251,7 @@ type (
 	// An BibDecl node represents a bibtex entry, like:
 	//   @article { author = "bar" }
 	BibDecl struct {
+		Type      string           // type of entry, e.g. "article"
 		Doc       *TexCommentGroup // associated documentation; or nil
 		Entry     gotok.Pos        // position of the start token, e.g. "@article"
 		Key       *Ident           // the first key in the declaration

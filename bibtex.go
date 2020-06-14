@@ -5,7 +5,7 @@ type CiteKey = string
 type EntryType = string
 
 const (
-	Article EntryType = "article"
+	EntryArticle EntryType = "article"
 )
 
 type Field = string
@@ -13,6 +13,7 @@ type Field = string
 const (
 	FieldAddress   = "address"
 	FieldAuthor    = "author"
+	FieldEditor    = "editor"
 	FieldBookTitle = "booktitile"
 	FieldChapter   = "chapter"
 )
@@ -36,10 +37,10 @@ type Author struct {
 }
 
 type Entry struct {
-	Type    EntryType
-	Key     CiteKey
-	Authors []Author
-	Editors []Author
-	Title   string
-	Tags    map[Field]string
+	Type   EntryType
+	Key    CiteKey
+	Author []Author
+	Editor []Author
+	Title  string
+	Tags   map[Field]string
 }

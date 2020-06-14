@@ -5,6 +5,7 @@ import (
 	"github.com/jschaf/b2/pkg/bibtex"
 	"github.com/jschaf/b2/pkg/bibtex/ast"
 	"github.com/jschaf/b2/pkg/bibtex/parser"
+	gotok "go/token"
 	"testing"
 )
 
@@ -90,6 +91,31 @@ func TestResolveAuthors_multiple(t *testing.T) {
 			got, _ := ResolveAuthors(a.(*ast.ParsedText))
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("ResolveAuthors() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestResolveFile(t *testing.T) {
+	tests := []struct {
+		src  string
+		want []bibtex.Entry
+	}{
+		{"@article{key, author = {Foo Bar}}", []bibtex.Entry{
+			{Type: bibtex.EntryArticle, Key: "key",
+				Tags:   make(map[bibtex.Field]string),
+				Author: []bibtex.Author{author("Foo", "Bar")}},
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			got, err := ResolveFile(gotok.NewFileSet(), "", tt.src)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("ResolveFile() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

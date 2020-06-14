@@ -194,6 +194,12 @@ func ExprString(x ast.Expr) string {
 	}
 }
 
+func WithBibType(s string) func(decl *ast.BibDecl) {
+	return func(b *ast.BibDecl) {
+		b.Type = s
+	}
+}
+
 func WithBibKeys(ts ...string) func(decl *ast.BibDecl) {
 	return func(b *ast.BibDecl) {
 		if len(ts) > 0 {

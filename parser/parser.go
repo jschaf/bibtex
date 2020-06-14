@@ -575,6 +575,7 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 		defer un(trace(p, "BibDecl"))
 	}
 	doc := p.leadComment
+	entryType := strings.TrimLeft(p.lit, "@")
 	pos := p.expect(token.BibEntry)
 	var bibKey *ast.Ident
 	var extraKeys []*ast.Ident
@@ -616,6 +617,7 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 	}
 	closer := p.expectCloser(opener)
 	return &ast.BibDecl{
+		Type:      entryType,
 		Doc:       doc,
 		Entry:     pos,
 		Key:       bibKey,

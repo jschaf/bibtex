@@ -4,14 +4,103 @@
 package resolver
 
 import (
+	"fmt"
 	"github.com/jschaf/b2/pkg/bibtex"
 	"github.com/jschaf/b2/pkg/bibtex/ast"
+	"github.com/jschaf/b2/pkg/bibtex/parser"
+	gotok "go/token"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 )
 
 const authorSep = "and"
+
+func exprText(x ast.Expr) string {
+	switch t := x.(type) {
+	case *ast.BadExpr:
+		return "<bad_expr>"
+	case *ast.Ident:
+		return "<unresolved ident '" + t.Name + "'>"
+	case *ast.Number:
+		return t.Value
+	case *ast.UnparsedText:
+		return t.Value
+	case *ast.ParsedText:
+		sb := strings.Builder{}
+		sb.Grow(16)
+		for i := range t.Values {
+			d := parseDefault(i, t.Values)
+			sb.WriteString(d)
+		}
+		return sb.String()
+	case *ast.Text:
+		switch t.Kind {
+		case ast.TextComma:
+			panic("unexpected comma")
+		case ast.TextNBSP, ast.TextSpace:
+			return " "
+		case ast.TextContent:
+			return t.Value
+		case ast.TextHyphen:
+			return "-"
+		case ast.TextMath:
+			return "$" + t.Value + "$"
+		case ast.TextSpecial:
+			// TODO: handle accents
+			return t.Value
+		default:
+			panic("unhandled ast.Text value: " + t.Value)
+		}
+	case *ast.ConcatExpr:
+		left := exprText(t.X)
+		right := exprText(t.Y)
+		return left + right
+	default:
+		panic("unhandled ast.Expr value")
+	}
+}
+func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]bibtex.Entry, error) {
+	f, err := parser.ParseFile(fset, filename, src, parser.ParseStrings)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]bibtex.Entry, 0, len(f.Entries))
+	for _, rawE := range f.Entries {
+		if _, ok := rawE.(*ast.BibDecl); !ok {
+			continue
+		}
+		bibDecl := rawE.(*ast.BibDecl)
+		normE := bibtex.Entry{
+			Key:  bibDecl.Key.Name,
+			Type: bibDecl.Type,
+			Tags: make(map[bibtex.Field]string),
+		}
+		for _, tag := range bibDecl.Tags {
+			switch tag.Name {
+			case bibtex.FieldAuthor:
+				if as, ok := tag.Value.(*ast.ParsedText); ok {
+					normE.Author, err = ResolveAuthors(as)
+					if err != nil {
+						return nil, fmt.Errorf("resolve authors: %w", err)
+					}
+				}
+
+			case bibtex.FieldEditor:
+				if as, ok := tag.Value.(*ast.ParsedText); ok {
+					normE.Editor, err = ResolveAuthors(as)
+					if err != nil {
+						return nil, fmt.Errorf("resolve authors: %w", err)
+					}
+				}
+			default:
+				normE.Tags[tag.Name] = exprText(tag.Value)
+			}
+		}
+		entries = append(entries, normE)
+	}
+	return entries, nil
+}
 
 // ResolveAuthors extracts the authors from the parsed text of a bibtex field,
 // usually the author or editor field.

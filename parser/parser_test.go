@@ -122,25 +122,32 @@ func TestParseFile_AbbrevDecl(t *testing.T) {
 func TestParseFile_BibDecl(t *testing.T) {
 	tests := []struct {
 		src    string
+		typeFn func(decl *ast.BibDecl)
 		keysFn func(*ast.BibDecl)
 		tagsFn func(*ast.BibDecl)
 	}{
 		{"@article { cite_key, key = {foo} }",
+			asts.WithBibType("article"),
 			asts.WithBibKeys("cite_key"),
 			asts.WithBibTags("key", asts.UnparsedBraceText("foo"))},
 		{"@article {cite_key1, key = {foo} }",
+			asts.WithBibType("article"),
 			asts.WithBibKeys("cite_key1"),
 			asts.WithBibTags("key", asts.UnparsedBraceText("foo"))},
 		{"@article {111, key = {foo} }",
+			asts.WithBibType("article"),
 			asts.WithBibKeys("111"),
 			asts.WithBibTags("key", asts.UnparsedBraceText("foo"))},
 		{"@article {111, key = bar }",
+			asts.WithBibType("article"),
 			asts.WithBibKeys("111"),
 			asts.WithBibTags("key", asts.Ident("bar"))},
 		{"@article {111, key = bar, extra }",
+			asts.WithBibType("article"),
 			asts.WithBibKeys("111", "extra"),
 			asts.WithBibTags("key", asts.Ident("bar"))},
-		{`@article {111, key = bar, a, b, k2 = "v2" }`,
+		{`@inproceeding {111, key = bar, a, b, k2 = "v2" }`,
+			asts.WithBibType("inproceeding"),
 			asts.WithBibKeys("111", "a", "b"),
 			asts.WithBibTags("key", asts.Ident("bar"), "k2", asts.UnparsedText("v2"))},
 	}
@@ -153,9 +160,13 @@ func TestParseFile_BibDecl(t *testing.T) {
 
 			gotBib := f.Entries[0].(*ast.BibDecl)
 			wantBib := &ast.BibDecl{}
+			tt.typeFn(wantBib)
 			tt.keysFn(wantBib)
 			tt.tagsFn(wantBib)
 
+			if diff := cmp.Diff(wantBib.Type, gotBib.Type); diff != "" {
+				t.Errorf("BibDecl type mismatch (-want +got):\n%s", diff)
+			}
 			if diff := cmp.Diff(wantBib.Key, gotBib.Key, cmpIdentName()); diff != "" {
 				t.Errorf("BibDecl keys mismatch (-want +got):\n%s", diff)
 			}
