@@ -163,12 +163,12 @@ func isLetter(ch rune) bool {
 	return 'a' <= lower(ch) && lower(ch) <= 'z' || ch == '_' || ch >= utf8.RuneSelf && unicode.IsLetter(ch)
 }
 
-// isName returns true if the char is a valid bibtex cite char.
+// IsName returns true if the char is a valid bibtex cite char.
 // Taken from the btparse docs:
 // https://metacpan.org/pod/release/AMBS/Text-BibTeX-0.66/btparse/doc/bt_language.pod
 // Includes letters, digits, underscores, hyphens and the following:
 //     ! $ & * + - . / : ; < > ? [ ] ^ _ ` |
-func isName(ch rune) bool {
+func IsName(ch rune) bool {
 	return ('a' <= ch && ch <= 'z') ||
 		('A' <= ch && ch <= 'Z') ||
 		('0' <= ch && ch <= '9') ||
@@ -208,7 +208,7 @@ func (s *Scanner) scanCommand() string {
 
 func (s *Scanner) scanIdent() string {
 	offs := s.offset
-	for isName(s.ch) {
+	for IsName(s.ch) {
 		s.next()
 	}
 	return string(s.src[offs:s.offset])
@@ -387,7 +387,7 @@ func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
 		tok = token.Number
 		lit = s.scanNumber()
 
-	case isName(ch):
+	case IsName(ch):
 		tok = token.Ident
 		lit = s.scanIdent()
 

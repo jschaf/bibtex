@@ -1,11 +1,10 @@
 // Package resolver transforms a Bibtex AST into complete bibtex entries,
 // resolving cross references, parsing authors and editors, and normalizing
 // page numbers.
-package resolver
+package bibtex
 
 import (
 	"fmt"
-	"github.com/jschaf/b2/pkg/bibtex"
 	"github.com/jschaf/b2/pkg/bibtex/ast"
 	"github.com/jschaf/b2/pkg/bibtex/parser"
 	gotok "go/token"
@@ -60,25 +59,25 @@ func exprText(x ast.Expr) string {
 		panic("unhandled ast.Expr value")
 	}
 }
-func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]bibtex.Entry, error) {
+func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]Entry, error) {
 	f, err := parser.ParseFile(fset, filename, src, parser.ParseStrings)
 	if err != nil {
 		return nil, err
 	}
-	entries := make([]bibtex.Entry, 0, len(f.Entries))
+	entries := make([]Entry, 0, len(f.Entries))
 	for _, rawE := range f.Entries {
 		if _, ok := rawE.(*ast.BibDecl); !ok {
 			continue
 		}
 		bibDecl := rawE.(*ast.BibDecl)
-		normE := bibtex.Entry{
+		normE := Entry{
 			Key:  bibDecl.Key.Name,
 			Type: bibDecl.Type,
-			Tags: make(map[bibtex.Field]string),
+			Tags: make(map[Field]string),
 		}
 		for _, tag := range bibDecl.Tags {
 			switch tag.Name {
-			case bibtex.FieldAuthor:
+			case FieldAuthor:
 				if as, ok := tag.Value.(*ast.ParsedText); ok {
 					normE.Author, err = ResolveAuthors(as)
 					if err != nil {
@@ -86,7 +85,7 @@ func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]bibte
 					}
 				}
 
-			case bibtex.FieldEditor:
+			case FieldEditor:
 				if as, ok := tag.Value.(*ast.ParsedText); ok {
 					normE.Editor, err = ResolveAuthors(as)
 					if err != nil {
@@ -104,11 +103,11 @@ func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]bibte
 
 // ResolveAuthors extracts the authors from the parsed text of a bibtex field,
 // usually the author or editor field.
-func ResolveAuthors(txt *ast.ParsedText) ([]bibtex.Author, error) {
+func ResolveAuthors(txt *ast.ParsedText) ([]Author, error) {
 	// Pop tokens until we get the author separator.
 	//   keep track of the number of commas at brace level 1.
 	//   hand off tokens to resolver
-	authors := make([]bibtex.Author, 0, 4)
+	authors := make([]Author, 0, 4)
 	aExprs := make([]ast.Expr, 0, 8)
 	for _, v := range txt.Values {
 		switch t := v.(type) {
@@ -145,7 +144,7 @@ func trimSpaces(xs []ast.Expr) []ast.Expr {
 	return xs[lo:hi]
 }
 
-func resolveAuthor(xs []ast.Expr) bibtex.Author {
+func resolveAuthor(xs []ast.Expr) Author {
 	xs = trimSpaces(xs)
 	commas := findCommas(xs)
 	switch len(commas) {
@@ -236,7 +235,7 @@ func parseDefault(idx int, xs []ast.Expr) string {
 
 // resolveAuthor0 resolves an author for an entry with no commas, like
 // "First von Last".
-func resolveAuthor0(xs []ast.Expr) bibtex.Author {
+func resolveAuthor0(xs []ast.Expr) Author {
 	first := strings.Builder{}
 	first.Grow(16)
 	idx := 0
@@ -275,7 +274,7 @@ func resolveAuthor0(xs []ast.Expr) bibtex.Author {
 		last.WriteString(val)
 	}
 
-	return bibtex.Author{
+	return Author{
 		First:  strings.TrimRight(first.String(), " "),
 		Prefix: strings.TrimRight(prefix.String(), " "),
 		Last:   strings.TrimRight(last.String(), " "),
@@ -285,7 +284,7 @@ func resolveAuthor0(xs []ast.Expr) bibtex.Author {
 
 // resolveAuthor1 resolves an author for an entry with one comma, like
 // "von Last, First".
-func resolveAuthor1(xs []ast.Expr, commas []int) bibtex.Author {
+func resolveAuthor1(xs []ast.Expr, commas []int) Author {
 	part1 := xs[:commas[0]]
 	idx1 := 0
 	prefix := strings.Builder{}
@@ -323,7 +322,7 @@ func resolveAuthor1(xs []ast.Expr, commas []int) bibtex.Author {
 		first.WriteString(val)
 	}
 
-	return bibtex.Author{
+	return Author{
 		First:  strings.Trim(first.String(), " "),
 		Prefix: strings.Trim(prefix.String(), " "),
 		Last:   strings.Trim(last.String(), " "),

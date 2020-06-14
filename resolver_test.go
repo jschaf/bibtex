@@ -1,35 +1,34 @@
-package resolver
+package bibtex
 
 import (
 	"github.com/google/go-cmp/cmp"
-	"github.com/jschaf/b2/pkg/bibtex"
 	"github.com/jschaf/b2/pkg/bibtex/ast"
 	"github.com/jschaf/b2/pkg/bibtex/parser"
 	gotok "go/token"
 	"testing"
 )
 
-func author(names ...string) bibtex.Author {
+func author(names ...string) Author {
 	switch len(names) {
 	case 0:
 		panic("need at least 1 name")
 	case 1:
-		return bibtex.Author{
+		return Author{
 			Last: names[0],
 		}
 	case 2:
-		return bibtex.Author{
+		return Author{
 			First: names[0],
 			Last:  names[1],
 		}
 	case 3:
-		return bibtex.Author{
+		return Author{
 			First:  names[0],
 			Prefix: names[1],
 			Last:   names[2],
 		}
 	case 4:
-		return bibtex.Author{
+		return Author{
 			First:  names[0],
 			Prefix: names[1],
 			Last:   names[2],
@@ -43,7 +42,7 @@ func author(names ...string) bibtex.Author {
 func TestResolveAuthors_single(t *testing.T) {
 	tests := []struct {
 		authors string
-		want    bibtex.Author
+		want    Author
 	}{
 		{"Last", author("Last")},
 		{"First Last", author("First", "Last")},
@@ -66,7 +65,7 @@ func TestResolveAuthors_single(t *testing.T) {
 				t.Fatal(err)
 			}
 			got, _ := ResolveAuthors(a.(*ast.ParsedText))
-			if diff := cmp.Diff([]bibtex.Author{tt.want}, got); diff != "" {
+			if diff := cmp.Diff([]Author{tt.want}, got); diff != "" {
 				t.Errorf("ResolveAuthors() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -76,11 +75,11 @@ func TestResolveAuthors_single(t *testing.T) {
 func TestResolveAuthors_multiple(t *testing.T) {
 	tests := []struct {
 		authors string
-		want    []bibtex.Author
+		want    []Author
 	}{
-		{"Last and Last2", []bibtex.Author{author("Last"), author("Last2")}},
-		{"F1 L1 and F2 L2", []bibtex.Author{author("F1", "L1"), author("F2", "L2")}},
-		{"F1 L1 and L2, F2", []bibtex.Author{author("F1", "L1"), author("F2", "L2")}},
+		{"Last and Last2", []Author{author("Last"), author("Last2")}},
+		{"F1 L1 and F2 L2", []Author{author("F1", "L1"), author("F2", "L2")}},
+		{"F1 L1 and L2, F2", []Author{author("F1", "L1"), author("F2", "L2")}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.authors, func(t *testing.T) {
@@ -99,12 +98,12 @@ func TestResolveAuthors_multiple(t *testing.T) {
 func TestResolveFile(t *testing.T) {
 	tests := []struct {
 		src  string
-		want []bibtex.Entry
+		want []Entry
 	}{
-		{"@article{key, author = {Foo Bar}}", []bibtex.Entry{
-			{Type: bibtex.EntryArticle, Key: "key",
-				Tags:   make(map[bibtex.Field]string),
-				Author: []bibtex.Author{author("Foo", "Bar")}},
+		{"@article{key, author = {Foo Bar}}", []Entry{
+			{Type: EntryArticle, Key: "key",
+				Tags:   make(map[Field]string),
+				Author: []Author{author("Foo", "Bar")}},
 		}},
 	}
 	for _, tt := range tests {

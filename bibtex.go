@@ -1,5 +1,11 @@
 package bibtex
 
+import (
+	"github.com/jschaf/b2/pkg/bibtex/scanner"
+	gotok "go/token"
+	"io"
+)
+
 type CiteKey = string
 
 type EntryType = string
@@ -43,4 +49,13 @@ type Entry struct {
 	Editor []Author
 	Title  string
 	Tags   map[Field]string
+}
+
+func Read(r io.Reader) ([]Entry, error) {
+	entries, err := ResolveFile(gotok.NewFileSet(), "", r)
+	return entries, err
+}
+
+func IsValidCiteChar(ch byte) bool {
+	return scanner.IsName(rune(ch))
 }
