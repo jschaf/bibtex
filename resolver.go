@@ -28,15 +28,15 @@ func exprText(x ast.Expr) string {
 	case *ast.ParsedText:
 		sb := strings.Builder{}
 		sb.Grow(16)
-		for i := range t.Values {
-			d := parseDefault(i, t.Values)
+		for _, v := range t.Values {
+			d := exprText(v)
 			sb.WriteString(d)
 		}
 		return sb.String()
 	case *ast.Text:
 		switch t.Kind {
 		case ast.TextComma:
-			panic("unexpected comma")
+			return ","
 		case ast.TextNBSP, ast.TextSpace:
 			return " "
 		case ast.TextContent:

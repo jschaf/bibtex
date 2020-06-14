@@ -42,6 +42,10 @@ type Author struct {
 	Suffix string // often called the 'jr' part
 }
 
+func (a Author) IsOthers() bool {
+	return a.First == "" && a.Prefix == "" && a.Last == "others" && a.Suffix == ""
+}
+
 type Entry struct {
 	Type   EntryType
 	Key    CiteKey
