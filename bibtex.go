@@ -17,11 +17,8 @@ const (
 type Field = string
 
 const (
-	FieldAddress   = "address"
-	FieldAuthor    = "author"
-	FieldEditor    = "editor"
-	FieldBookTitle = "booktitile"
-	FieldChapter   = "chapter"
+	FieldAuthor = "author"
+	FieldEditor = "editor"
 )
 
 // Author represents a person who contributed to an entry.

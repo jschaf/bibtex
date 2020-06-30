@@ -247,7 +247,6 @@ func toks(t ...string) []stringTok {
 }
 
 func TestScanner_Scan_scanInString(t *testing.T) {
-	const wSpace = " \n \r \t "
 	type testCase struct {
 		lit  string
 		toks []stringTok
