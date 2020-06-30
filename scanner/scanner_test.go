@@ -55,9 +55,9 @@ type elt struct {
 var tokens = [...]elt{
 	// Commands
 	{token.Comment, "@COMMENT", command},
-	{token.Comment, "@comMent", command},
+	{token.Comment, "@Comment", command},
 	{token.Abbrev, "@String", command},
-	{token.Abbrev, "@sTRING", command},
+	{token.Abbrev, "@STRING", command},
 	{token.Preamble, "@preamble", command},
 	{token.Preamble, "@PREAMBLE", command},
 	{token.BibEntry, "@article", command},
@@ -77,7 +77,7 @@ var tokens = [...]elt{
 	{token.BraceString, `{{f}oo}`, literal}, // LBrace must precede brace string
 	{token.Ident, "qux", literal},
 	{token.Ident, "qux_2", literal},
-	{token.Ident, "q!$&*+-./:;<>?[]^_`|", literal},
+	{token.Ident, "q!$&*+-/<.:;<>?[]^_`|", literal},
 	// Operators and delimiters
 	{token.Concat, "#", operator},
 	{token.LParen, "(", operator},
