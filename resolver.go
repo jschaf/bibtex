@@ -323,9 +323,9 @@ func resolveAuthor1(xs []ast.Expr, commas []int) Author {
 	}
 
 	return Author{
-		First:  strings.Trim(first.String(), " "),
-		Prefix: strings.Trim(prefix.String(), " "),
-		Last:   strings.Trim(last.String(), " "),
+		First:  strings.TrimSpace(first.String()),
+		Prefix: strings.TrimSpace(prefix.String()),
+		Last:   strings.TrimSpace(last.String()),
 		Suffix: "",
 	}
 }

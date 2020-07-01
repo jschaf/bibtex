@@ -575,7 +575,7 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 		defer un(trace(p, "BibDecl"))
 	}
 	doc := p.leadComment
-	entryType := strings.TrimLeft(p.lit, "@")
+	entryType := p.lit[1:] // drop '@', e.g. "@book" -> "book"
 	pos := p.expect(token.BibEntry)
 	var bibKey *ast.Ident
 	var extraKeys []*ast.Ident
