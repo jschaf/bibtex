@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"github.com/google/go-cmp/cmp"
 	gotok "go/token"
 	"path/filepath"
 	"strconv"
@@ -198,6 +199,7 @@ func TestScanner_Scan(t *testing.T) {
 	}
 }
 
+// stringTok represents a token that's used for testing.
 type stringTok struct {
 	t   token.Token
 	lit string
@@ -212,22 +214,44 @@ func (st stringTok) size() int {
 	return len(st.raw)
 }
 
+type errorCollector struct {
+	cnt  int              // number of errors encountered
+	msgs []string         // all error messages encountered
+	pos  []gotok.Position // error positions encountered
+}
+
+func (ec *errorCollector) asHandler() ErrorHandler {
+	return func(pos gotok.Position, msg string) {
+		ec.cnt++
+		ec.msgs = append(ec.msgs, msg)
+		ec.pos = append(ec.pos, pos)
+	}
+}
+
+func errs(es ...string) []string {
+	return es
+}
+
 func tok(s string) stringTok {
 	switch {
 	case strings.TrimSpace(s) == "":
 		return stringTok{t: token.StringSpace, lit: "", raw: s}
 	case s == `"`:
-		return stringTok{t: token.StringContents, lit: `"`, raw: `"`}
+		return stringTok{t: token.DoubleQuote, lit: ``, raw: `"`}
 	case s == ",":
 		return stringTok{t: token.StringComma, lit: "", raw: ","}
 	case s == "~":
 		return stringTok{t: token.StringNBSP, lit: "", raw: "~"}
+	case s == "LBrace":
+		return stringTok{t: token.LBrace, lit: "", raw: "{"}
+	case s == "=":
+		return stringTok{t: token.Assign, lit: "", raw: "="}
 	case s == "{":
 		return stringTok{t: token.StringLBrace, lit: "", raw: "{"}
 	case s == "}":
 		return stringTok{t: token.StringRBrace, lit: "", raw: "}"}
 	case strings.HasPrefix(s, "$"):
-		if !strings.HasSuffix(s, "$") {
+		if !strings.HasSuffix(s, "$") || len(s) < 2 {
 			panic("tok begins with $ but doesn't end with $")
 		}
 		return stringTok{t: token.StringMath, lit: s[1 : len(s)-1], raw: s}
@@ -250,52 +274,59 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 	type testCase struct {
 		lit  string
 		toks []stringTok
+		errs []string
 	}
 	tests := []testCase{
-		{"", toks()},
-		{"$a$", toks("$a$")},
-		{"a \n \r \t b", toks("a", " \n \r \t ", "b")},
-		{"a\nb", toks("a", "\n", "b")},
-		{"a,b", toks("a", ",", "b")},
-		{"a~b", toks("a", "~", "b")},
-		{`a{"}b`, toks("a", "{", `"`, "}", "b")},
-		{"{Fo}o", toks("{", `Fo`, "}", "o")},
+		// Simple
+		{"", toks(), nil},
+		{`""`, toks(), nil},
+		{`{}`, toks(), nil},
+		{`"\$"`, toks(`"`, `\$`, `"`), nil},
+		// Extra leading '=' here and below because we differentiate a string brace
+		// from a declaration brace using a heuristic. If preceded by '=' or '{'
+		// assume a string brace. Use it for double quotes for alignment between
+		// similar test cases.
+		{`={\$}`, toks("=", `{`, `\$`, `}`), nil},
+		{`{{\$}`, toks("LBrace", `{`, `\$`, `}`), nil},
+		// Escaped dollar signs
+		{`="$\$$"`, toks("=", `"`, `$\$$`, `"`), nil},
+		{`={$\$$}`, toks("=", `{`, `$\$$`, `}`), nil},
+		{`="\$\$"`, toks("=", `"`, `\$\$`, `"`), nil},
+		{`={\$\$}`, toks("=", `{`, `\$\$`, `}`), nil},
+		// Escaped backslashes and special chars
+		{`="\\a"`, toks("=", `"`, `\\a`, `"`), nil},
+		{`={\\a}`, toks("=", `{`, `\\a`, `}`), nil},
+		{`="\{"`, toks("=", `"`, `\{`, `"`), nil},
+		{`={\{}`, toks("=", `{`, `\{`, `}`), nil},
+		{`="\}"`, toks("=", `"`, `\}`, `"`), nil},
+		{`={\}}`, toks("=", `{`, `\}`, `}`), nil},
+		{`="\%"`, toks("=", `"`, `\%`, `"`), nil},
+		{`={\%}`, toks("=", `{`, `\%`, `}`), nil},
+		// Whitespace
+		{"\"a\nb\"", toks(`"`, "a", "\n", "b", `"`), nil},
+		{"\"a \n \r \t b\"", toks(`"`, "a", " \n \r \t ", "b", `"`), nil},
+		{"={a \n \r \t b}", toks("=", `{`, "a", " \n \r \t ", "b", `}`), nil},
+		{`="a,b"`, toks("=", `"`, "a", ",", "b", `"`), nil},
+		{`={a~b}`, toks("=", `{`, "a", "~", "b", `}`), nil},
+		{`="a{z"}b."`, toks("=", `"`, "a", "{", `z"`, "}", "b.", `"`), nil},
+		{`={a{z"}b"}`, toks("=", `{`, "a", "{", `z"`, "}", `b"`, `}`), nil},
+		{`="{Fo}o"`, toks("=", `"`, "{", "Fo", "}", "o", `"`), nil},
+		{`={{Fo}o}`, toks(`=`, "{", "{", "Fo", "}", "o", `}`), nil},
+		// Invalid
+		{`"{ {$x}"`, []stringTok{tok(`"`), tok("{"), tok(" "), tok("{"),
+			{t: token.Illegal, lit: `$x}"`, raw: `$x}"`},
+		}, errs("math in string literal not terminated")},
 	}
 
-	// Surround each test with both double quotes and braces.
-	allTests := make([]testCase, 2*len(tests))
-	for i, test := range tests {
-		qs := make([]stringTok, len(test.toks)+2)
-		qs[0] = stringTok{t: token.DoubleQuote, lit: "", raw: `"`}
-		copy(qs[1:], test.toks)
-		qs[len(test.toks)+1] = stringTok{t: token.DoubleQuote, lit: "", raw: `"`}
-		allTests[i] = testCase{
-			lit:  `"` + test.lit + `"`,
-			toks: qs,
-		}
-
-		bs := make([]stringTok, len(test.toks)+3)
-		bs[0] = stringTok{t: token.Assign, lit: "", raw: "="}
-		bs[1] = tok("{")
-		copy(bs[2:], test.toks)
-		bs[len(test.toks)+2] = tok("}")
-		allTests[i+len(tests)] = testCase{
-			lit:  `={` + test.lit + `}`,
-			toks: bs,
-		}
-	}
-
-	for _, tt := range allTests {
+	for _, tt := range tests {
 		t.Run(tt.lit, func(t *testing.T) {
 			// error handler
-			eh := func(_ gotok.Position, msg string) {
-				t.Errorf("error handler called (msg = %s)", msg)
-			}
+			ec := &errorCollector{}
 
 			// verify scanner
 			fset := gotok.NewFileSet()
 			var s Scanner
-			s.Init(fset.AddFile("", fset.Base(), len(tt.lit)), []byte(tt.lit), eh, ScanStrings)
+			s.Init(fset.AddFile("", fset.Base(), len(tt.lit)), []byte(tt.lit), ec.asHandler(), ScanStrings)
 
 			// set up expected position
 			epos := gotok.Position{
@@ -308,8 +339,8 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 			for i := 0; i < len(tt.toks); i++ {
 				p, tok, lit := s.Scan()
 				eTok := tt.toks[i]
-				t.Logf("index %2d, raw: %q, lit: %q, got: %s, expect: %s",
-					i, eTok.raw, lit, tok, eTok.t)
+				t.Logf("index %2d, gotTok: %-14s wantTok: %-14s  gotLit: %-5q litAtPt: %q",
+					i, tok, eTok.t, lit, eTok.raw)
 				pos := fset.Position(p)
 				checkPosFilename(t, pos, epos, lit)
 				checkPosOffset(t, pos, epos, lit)
@@ -325,18 +356,15 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 				epos.Offset += eTok.size()
 				epos.Line += eTok.newlineCount()
 			}
+
+			if diff := cmp.Diff(tt.errs, ec.msgs); diff != "" {
+				t.Errorf("Errors mismatch (-want +got):\n%s", diff)
+			}
 		})
 	}
-
 }
 
 func TestScanner_Scan_Errors(t *testing.T) {
-	type errorCollector struct {
-		cnt int            // number of errors encountered
-		msg string         // last error message encountered
-		pos gotok.Position // last error position encountered
-	}
-
 	tests := []struct {
 		src string
 		tok token.Token
@@ -356,13 +384,8 @@ func TestScanner_Scan_Errors(t *testing.T) {
 	for _, e := range tests {
 		t.Run(e.src, func(t *testing.T) {
 			var s Scanner
-			var h errorCollector
-			eh := func(pos gotok.Position, msg string) {
-				h.cnt++
-				h.msg = msg
-				h.pos = pos
-			}
-			s.Init(fset.AddFile("", fset.Base(), len(e.src)), []byte(e.src), eh, ScanComments)
+			h := &errorCollector{}
+			s.Init(fset.AddFile("", fset.Base(), len(e.src)), []byte(e.src), h.asHandler(), ScanComments)
 			_, tok0, lit0 := s.Scan()
 			if tok0 != e.tok {
 				t.Errorf("got %s, expected %s", tok0, e.tok)
@@ -377,11 +400,10 @@ func TestScanner_Scan_Errors(t *testing.T) {
 			if h.cnt != cnt {
 				t.Errorf("got cnt %d, expected %d", h.cnt, cnt)
 			}
-			if h.msg != e.err {
-				t.Errorf("got msg %q, expected %q", h.msg, e.err)
-			}
-			if h.pos.Offset != e.pos {
-				t.Errorf("got offset %d, expected %d", h.pos.Offset, e.pos)
+			if e.err != "" {
+				if diff := cmp.Diff(errs(e.err), h.msgs); diff != "" {
+					t.Errorf("Errors mismatch (-want +got):\n%s", diff)
+				}
 			}
 		})
 

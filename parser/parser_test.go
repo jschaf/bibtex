@@ -119,7 +119,7 @@ func TestParseFile_AbbrevDecl(t *testing.T) {
 	}
 }
 
-func TestParseFile_BibDecl(t *testing.T) {
+func TestParseFile_BibDecl_NoParseStrings(t *testing.T) {
 	tests := []struct {
 		src    string
 		typeFn func(decl *ast.BibDecl)
@@ -139,6 +139,10 @@ func TestParseFile_BibDecl(t *testing.T) {
 			asts.WithBibKeys("111"),
 			asts.WithBibTags("key", asts.UnparsedBraceText("foo"))},
 		{"@article {111, key = bar }",
+			asts.WithBibType("article"),
+			asts.WithBibKeys("111"),
+			asts.WithBibTags("key", asts.Ident("bar"))},
+		{"@article {111, key = bar },", // trailing comma
 			asts.WithBibType("article"),
 			asts.WithBibKeys("111"),
 			asts.WithBibTags("key", asts.Ident("bar"))},
@@ -198,13 +202,18 @@ func TestParseFile_BibDecl_ModeParseStrings(t *testing.T) {
 		{"@article { cite_key, key = {f\no\ro} }",
 			asts.WithBibKeys("cite_key"),
 			asts.WithBibTags("key", asts.BraceText(0, "f", " ", "o", " ", "o"))},
-		{`@article{cite_key, 
+		{`@article{cite_key,
 		   howPublished = "\url{http://example.com/foo-bar/~baz/}"
 		  }`,
 			asts.WithBibKeys("cite_key"),
 			asts.WithBibTags("howPublished",
 				asts.QuotedTextExpr(0, asts.Text(`\url`),
 					asts.BraceTextExpr(1, asts.Text("http://example.com/foo-bar/"), asts.NBSP(), asts.Text("baz/"))))},
+		{`@article { cite_key, title = {\href{https://nyt.com/}{Dollar \$140}} }`,
+			asts.WithBibKeys("cite_key"),
+			asts.WithBibTags("title",
+				asts.BraceText(0, `\href`, "{https://nyt.com/}", `{Dollar \$140}`)),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -261,6 +270,22 @@ func TestParseFile_BibDecl_invalid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			_, err := ParseFile(gotok.NewFileSet(), "", tt.src, 0)
+			if err == nil {
+				t.Fatalf("expected error but had none:\n%s", tt.src)
+			}
+		})
+	}
+}
+
+func TestParseFile_BibDecl_invalid_ParseStrings(t *testing.T) {
+	tests := []struct {
+		src string
+	}{
+		{"@article {111, a = {$x=1} }"}, // unmatched math ($) delimiter
+	}
+	for _, tt := range tests {
+		t.Run(tt.src, func(t *testing.T) {
+			_, err := ParseFile(gotok.NewFileSet(), "", tt.src, ParseStrings)
 			if err == nil {
 				t.Fatalf("expected error but had none:\n%s", tt.src)
 			}

@@ -273,21 +273,29 @@ func (s *Scanner) scanTexComment() string {
 	return string(s.src[offs:s.offset])
 }
 
-func (s *Scanner) scanStringMath() string {
+func (s *Scanner) scanStringMath() (token.Token, string) {
 	offs := s.offset
 	for s.ch != '$' {
-		if s.ch < 0 {
+		if s.ch < 0 || s.ch == '\n' {
 			s.error(offs, "math in string literal not terminated")
-			break
+			return token.Illegal, string(s.src[offs-1 : s.offset])
+		}
+		if s.ch == '\\' {
+			s.next() // consume the backslash and whatever comes next
 		}
 		s.next()
 	}
 	s.next() // consume closing '$'
-	return string(s.src[offs : s.offset-1])
+	return token.StringMath, string(s.src[offs : s.offset-1])
 }
 
-func isSpecialStringChar(ch rune) bool {
-	return ch == '$' || ch == '"' || ch == '{' || ch == '}' ||
+func (s *Scanner) isSpecialStringChar(ch rune) bool {
+	if ch == '"' {
+		// A double quote is only special at brace depth 0 when we started the
+		// string with a double quote because it terminates the string.
+		return s.braceDepth == 0 && s.endQuoteCh == '"'
+	}
+	return ch == '$' || ch == '{' || ch == '}' ||
 		ch == eof || ch == ',' ||
 		ch == '~' || // nbsp
 		ch == '\n' || ch == '\r' || ch == ' ' || ch == '\t' // white space
@@ -295,7 +303,10 @@ func isSpecialStringChar(ch rune) bool {
 
 func (s *Scanner) scanStringContents() string {
 	offs := s.offset
-	for !isSpecialStringChar(s.ch) {
+	for !s.isSpecialStringChar(s.ch) {
+		if s.ch == '\\' {
+			s.next() // consume the backslash and next char
+		}
 		s.next()
 	}
 	return string(s.src[offs:s.offset])
@@ -306,7 +317,7 @@ func (s *Scanner) scanInString() (pos gotok.Pos, tok token.Token, lit string) {
 		panic("called scanInString but not in quote")
 	}
 	pos = s.file.Pos(s.offset)
-	if !isSpecialStringChar(s.ch) {
+	if !s.isSpecialStringChar(s.ch) {
 		tok = token.StringContents
 		lit = s.scanStringContents()
 		return
@@ -317,8 +328,7 @@ func (s *Scanner) scanInString() (pos gotok.Pos, tok token.Token, lit string) {
 	s.next()
 	switch ch {
 	case '$':
-		tok = token.StringMath
-		lit = s.scanStringMath()
+		tok, lit = s.scanStringMath()
 	case '"':
 		if s.endQuoteCh == '"' && s.braceDepth == 0 {
 			s.endQuoteCh = 0

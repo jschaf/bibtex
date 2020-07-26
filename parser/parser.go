@@ -255,6 +255,15 @@ func (p *parser) expect(tok token.Token) gotok.Pos {
 	return pos
 }
 
+func (p *parser) expectOptional(tok token.Token) gotok.Pos {
+	pos := p.pos
+	if p.tok != tok {
+		return pos
+	}
+	p.next() // make progress
+	return pos
+}
+
 func (p *parser) expectOne(tok ...token.Token) (token.Token, gotok.Pos) {
 	pos := p.pos
 	for _, t := range tok {
@@ -278,7 +287,7 @@ func (p *parser) expectOne(tok ...token.Token) (token.Token, gotok.Pos) {
 	return token.Illegal, pos
 }
 
-func (p *parser) expectComma() {
+func (p *parser) expectOptionalTagComma() {
 	if p.tok == token.RBrace || p.tok == token.RParen {
 		// TextComma is optional before a closing ')' or '}'
 		return
@@ -512,7 +521,7 @@ func (p *parser) parseTagStmt() *ast.TagStmt {
 		p.expect(token.Assign) // use expect() error handling
 	}
 	val := p.parseExpr()
-	p.expectComma()
+	p.expectOptionalTagComma()
 	return &ast.TagStmt{
 		Doc:     doc,
 		NamePos: key.Pos(),
@@ -576,7 +585,7 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 	doc := p.leadComment
 	entryType := p.lit[1:] // drop '@', e.g. "@book" -> "book"
 	pos := p.expect(token.BibEntry)
-	var bibKey *ast.Ident
+	var bibKey *ast.Ident // use first key found as bibKey
 	var extraKeys []*ast.Ident
 	tags := make([]*ast.TagStmt, 0, 8)
 	opener, _ := p.expectOne(token.LBrace, token.LParen)
@@ -615,6 +624,7 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 		}
 	}
 	closer := p.expectCloser(opener)
+	p.expectOptional(token.Comma) // trailing commas allowed
 	return &ast.BibDecl{
 		Type:      entryType,
 		Doc:       doc,
