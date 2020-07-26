@@ -2,8 +2,8 @@ package bibtex
 
 import (
 	"github.com/google/go-cmp/cmp"
-	"github.com/jschaf/b2/pkg/bibtex/ast"
-	"github.com/jschaf/b2/pkg/bibtex/parser"
+	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/parser"
 	gotok "go/token"
 	"testing"
 )

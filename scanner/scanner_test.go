@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jschaf/b2/pkg/bibtex/token"
+	"github.com/jschaf/bibtex/token"
 )
 
 type tokClass int

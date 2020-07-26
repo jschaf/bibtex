@@ -1,15 +1,15 @@
 package parser
 
 import (
-	"github.com/jschaf/b2/pkg/bibtex/asts"
+	"github.com/jschaf/bibtex/asts"
 	gotok "go/token"
 	"io/ioutil"
 	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/jschaf/b2/pkg/bibtex/ast"
-	"github.com/jschaf/b2/pkg/bibtex/token"
+	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/token"
 )
 
 func cmpExpr() cmp.Option {

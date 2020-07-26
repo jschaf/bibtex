@@ -5,8 +5,8 @@ package bibtex
 
 import (
 	"fmt"
-	"github.com/jschaf/b2/pkg/bibtex/ast"
-	"github.com/jschaf/b2/pkg/bibtex/parser"
+	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/parser"
 	gotok "go/token"
 	"strings"
 	"unicode"

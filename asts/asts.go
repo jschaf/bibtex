@@ -3,8 +3,8 @@ package asts
 
 import (
 	"fmt"
-	"github.com/jschaf/b2/pkg/bibtex/ast"
-	"github.com/jschaf/b2/pkg/bibtex/token"
+	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/token"
 	"strconv"
 	"strings"
 )

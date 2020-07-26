@@ -8,7 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/jschaf/b2/pkg/bibtex/ast"
+	"github.com/jschaf/bibtex/ast"
 )
 
 // If src != nil, readSource converts src to a []byte if possible;

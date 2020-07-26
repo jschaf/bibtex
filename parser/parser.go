@@ -6,9 +6,9 @@ import (
 	gotok "go/token"
 	"strings"
 
-	"github.com/jschaf/b2/pkg/bibtex/ast"
-	"github.com/jschaf/b2/pkg/bibtex/scanner"
-	"github.com/jschaf/b2/pkg/bibtex/token"
+	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/scanner"
+	"github.com/jschaf/bibtex/token"
 )
 
 // The parser structure holds the parser's internal state.
@@ -173,7 +173,6 @@ func (p *parser) consumeCommentGroup(n int) (comments *ast.TexCommentGroup, endL
 //
 // Lead and line comments may be considered documentation that is
 // stored in the AST.
-//
 func (p *parser) next() {
 	p.leadComment = nil
 	p.lineComment = nil
