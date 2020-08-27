@@ -1,11 +1,12 @@
 package bibtex
 
 import (
+	gotok "go/token"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/jschaf/bibtex/ast"
 	"github.com/jschaf/bibtex/parser"
-	gotok "go/token"
-	"testing"
 )
 
 func author(names ...string) Author {
@@ -76,10 +77,13 @@ func TestResolveAuthors_multiple(t *testing.T) {
 	tests := []struct {
 		authors string
 		want    []Author
+		wantErr bool
 	}{
-		{"Last and Last2", []Author{author("Last"), author("Last2")}},
-		{"F1 L1 and F2 L2", []Author{author("F1", "L1"), author("F2", "L2")}},
-		{"F1 L1 and L2, F2", []Author{author("F1", "L1"), author("F2", "L2")}},
+		{"Last and Last2", []Author{author("Last"), author("Last2")}, false},
+		// double and should not cause a crash, instead it stops at the first empty and returns and err
+		{"Last3 and and Last4", []Author{author("Last3")}, true},
+		{"F1 L1 and F2 L2", []Author{author("F1", "L1"), author("F2", "L2")}, false},
+		{"F1 L1 and L2, F2", []Author{author("F1", "L1"), author("F2", "L2")}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.authors, func(t *testing.T) {
@@ -87,7 +91,10 @@ func TestResolveAuthors_multiple(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, _ := ResolveAuthors(a.(*ast.ParsedText))
+			got, err := ResolveAuthors(a.(*ast.ParsedText))
+			if err != nil && !tt.wantErr {
+				t.Fatal(err)
+			}
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("ResolveAuthors() mismatch (-want +got):\n%s", diff)
 			}
@@ -105,7 +112,20 @@ func TestResolveFile(t *testing.T) {
 				Tags:   make(map[Field]string),
 				Author: []Author{author("Foo", "Bar")}},
 		}},
+		{"@article{abc, author = {Moir, Mark and Scherer,III, William N.}}", []Entry{
+			{Type: EntryArticle, Key: "abc",
+				Tags: make(map[Field]string),
+				Author: []Author{
+					author("Mark", "Moir"),
+					author("William N.", "", "Scherer", "III")}},
+		}},
+		{"@article{ rfc1812, author = {F. {Baker, ed.}}}", []Entry{
+			{Type: EntryArticle, Key: "rfc1812",
+				Tags:   make(map[Field]string),
+				Author: []Author{author("F.", "Baker, ed.")}},
+		}},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
 			got, err := ResolveFile(gotok.NewFileSet(), "", tt.src)

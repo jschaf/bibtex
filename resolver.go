@@ -5,12 +5,13 @@ package bibtex
 
 import (
 	"fmt"
-	"github.com/jschaf/bibtex/ast"
-	"github.com/jschaf/bibtex/parser"
 	gotok "go/token"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/parser"
 )
 
 const authorSep = "and"
@@ -59,6 +60,7 @@ func exprText(x ast.Expr) string {
 		panic("unhandled ast.Expr value")
 	}
 }
+
 func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]Entry, error) {
 	f, err := parser.ParseFile(fset, filename, src, parser.ParseStrings)
 	if err != nil {
@@ -81,7 +83,7 @@ func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]Entry
 				if as, ok := tag.Value.(*ast.ParsedText); ok {
 					normE.Author, err = ResolveAuthors(as)
 					if err != nil {
-						return nil, fmt.Errorf("resolve authors: %w", err)
+						return nil, fmt.Errorf("resolve authors in key %v: %w", bibDecl.Key.Name, err)
 					}
 				}
 
@@ -89,7 +91,7 @@ func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]Entry
 				if as, ok := tag.Value.(*ast.ParsedText); ok {
 					normE.Editor, err = ResolveAuthors(as)
 					if err != nil {
-						return nil, fmt.Errorf("resolve authors: %w", err)
+						return nil, fmt.Errorf("resolve authors in key %v: %w", bibDecl.Key.Name, err)
 					}
 				}
 			default:
@@ -114,6 +116,9 @@ func ResolveAuthors(txt *ast.ParsedText) ([]Author, error) {
 		case *ast.Text:
 			if t.Kind == ast.TextContent && t.Value == authorSep {
 				a := resolveAuthor(aExprs)
+				if (a == Author{}) {
+					return authors, fmt.Errorf("found an empty author")
+				}
 				authors = append(authors, a)
 				aExprs = aExprs[:0]
 				continue
@@ -122,12 +127,16 @@ func ResolveAuthors(txt *ast.ParsedText) ([]Author, error) {
 		aExprs = append(aExprs, v)
 	}
 	final := resolveAuthor(aExprs)
+	if (final == Author{}) {
+		return authors, fmt.Errorf("found an empty author")
+	}
 	authors = append(authors, final)
 	return authors, nil
 }
 
 func trimSpaces(xs []ast.Expr) []ast.Expr {
 	lo, hi := 0, len(xs)
+
 	for i := 0; i < len(xs); i++ {
 		if t, ok := xs[i].(*ast.Text); !ok || t.Kind != ast.TextSpace {
 			break
@@ -141,19 +150,20 @@ func trimSpaces(xs []ast.Expr) []ast.Expr {
 		}
 		hi--
 	}
+	if hi <= lo {
+		return xs[lo:lo]
+	}
 	return xs[lo:hi]
 }
 
 func resolveAuthor(xs []ast.Expr) Author {
 	xs = trimSpaces(xs)
 	commas := findCommas(xs)
-	switch len(commas) {
-	case 0:
+	if len(commas) == 0 {
 		return resolveAuthor0(xs)
-	case 1:
-		return resolveAuthor1(xs, commas)
+	} else {
+		return resolveAuthorN(xs, commas)
 	}
-	panic("unreachable")
 }
 
 type resolveAction int
@@ -213,7 +223,7 @@ func parseDefault(idx int, xs []ast.Expr) string {
 	case *ast.Text:
 		switch t.Kind {
 		case ast.TextComma:
-			panic("unexpected comma")
+			return ","
 		case ast.TextNBSP, ast.TextSpace:
 			return " "
 		case ast.TextContent:
@@ -282,9 +292,12 @@ func resolveAuthor0(xs []ast.Expr) Author {
 	}
 }
 
-// resolveAuthor1 resolves an author for an entry with one comma, like
-// "von Last, First".
-func resolveAuthor1(xs []ast.Expr, commas []int) Author {
+// resolveAuthorN resolves an author in the presense of 1 or more commas.
+// last, first
+// von last, first -> author(first, von, last)
+// last, suffix, first -> Author{ first, "", last, suffix }
+// von last, suffix, first -> Author{ first, von, last, suffix }
+func resolveAuthorN(xs []ast.Expr, commas []int) Author {
 	part1 := xs[:commas[0]]
 	idx1 := 0
 	prefix := strings.Builder{}
@@ -311,6 +324,15 @@ func resolveAuthor1(xs []ast.Expr, commas []int) Author {
 	}
 
 	part2 := xs[commas[0]+1:]
+
+	suffix := strings.Builder{}
+	suffix.Grow(16)
+	if len(commas) > 1 {
+		val := parseDefault(0, xs[commas[0]+1:])
+		suffix.WriteString(val)
+		part2 = xs[commas[1]+1:]
+	}
+
 	idx2 := 0
 	first := strings.Builder{}
 	first.Grow(16)
@@ -326,7 +348,7 @@ func resolveAuthor1(xs []ast.Expr, commas []int) Author {
 		First:  strings.TrimSpace(first.String()),
 		Prefix: strings.TrimSpace(prefix.String()),
 		Last:   strings.TrimSpace(last.String()),
-		Suffix: "",
+		Suffix: strings.TrimSpace(suffix.String()),
 	}
 }
 
