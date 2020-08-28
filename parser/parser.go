@@ -393,7 +393,12 @@ func (p *parser) parseText(depth int) (txt ast.Expr) {
 
 		values := make([]ast.Expr, 0, 2)
 		for p.tok != token.StringRBrace {
-			values = append(values, p.parseText(depth+1))
+			text := p.parseText(depth + 1)
+			if _, ok := text.(*ast.BadExpr); ok {
+				p.next()
+				return text
+			}
+			values = append(values, text)
 		}
 		txt = &ast.ParsedText{
 			Depth:  depth,
@@ -421,6 +426,8 @@ func (p *parser) parseText(depth int) (txt ast.Expr) {
 		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextSpecial, Value: p.lit}
 	case token.StringComma:
 		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextComma, Value: p.lit}
+	case token.Illegal:
+		txt = &ast.BadExpr{From: p.pos, To: p.pos}
 	default:
 		p.error(p.pos, "unknown text type: "+p.tok.String())
 	}
@@ -679,7 +686,7 @@ func (p *parser) parseFile() *ast.File {
 	p.openScope()
 	p.pkgScope = p.topScope
 	var decls []ast.Decl
-	for p.tok != token.EOF {
+	for p.tok != token.EOF && p.tok != token.Illegal {
 		decls = append(decls, p.parseDecl())
 	}
 	p.closeScope()
