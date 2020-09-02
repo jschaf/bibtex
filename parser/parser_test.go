@@ -202,13 +202,17 @@ func TestParseFile_BibDecl_ModeParseStrings(t *testing.T) {
 		{"@article { cite_key, key = {f\no\ro} }",
 			asts.WithBibKeys("cite_key"),
 			asts.WithBibTags("key", asts.BraceText(0, "f", " ", "o", " ", "o"))},
-		{`@article{cite_key,
-		   howPublished = "\url{http://example.com/foo-bar/~baz/}"
-		  }`,
+		{`@article{cite_key, howPublished = "\url{http://example.com/foo--bar/~baz/#}" }`,
 			asts.WithBibKeys("cite_key"),
 			asts.WithBibTags("howPublished",
-				asts.QuotedTextExpr(0, asts.Text(`\url`),
-					asts.BraceTextExpr(1, asts.Text("http://example.com/foo-bar/"), asts.NBSP(), asts.Text("baz/"))))},
+				asts.QuotedTextExpr(0, asts.CmdText("url", "http://example.com/foo--bar/~baz/#")))},
+		{`@article{cite_key, url = "http://example.com/foo--bar/~baz/#" }`,
+			asts.WithBibKeys("cite_key"),
+			asts.WithBibTags("url", asts.QuotedText(0, "http://example.com/foo--bar/~baz/#"))},
+		{`@article{cite_key, url = "\url{http://foo.com/bar~qux-baz/#}" }`,
+			asts.WithBibKeys("cite_key"),
+			asts.WithBibTags("url",
+				asts.QuotedTextExpr(0, asts.CmdText("url", "http://foo.com/bar~qux-baz/#")))},
 		{`@article { cite_key, title = {\href{https://nyt.com/}{Dollar \$140}} }`,
 			asts.WithBibKeys("cite_key"),
 			asts.WithBibTags("title",
@@ -217,7 +221,7 @@ func TestParseFile_BibDecl_ModeParseStrings(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			f, err := ParseFile(gotok.NewFileSet(), "", tt.src, ParseStrings)
+			f, err := ParseFile(gotok.NewFileSet(), "", tt.src, ParseStrings|Trace)
 			if err != nil {
 				t.Fatal(err)
 			}

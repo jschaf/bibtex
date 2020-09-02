@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jschaf/bibtex/ast"
 	"github.com/jschaf/bibtex/token"
+	gotok "go/token"
 	"strconv"
 	"strings"
 )
@@ -106,6 +107,10 @@ func Text(s string) *ast.Text {
 	return &ast.Text{Kind: ast.TextContent, Value: s}
 }
 
+func CmdText(name, arg string) *ast.CmdText {
+	return &ast.CmdText{Name: name, Values: []ast.Expr{Text(arg)}}
+}
+
 func WSpace() *ast.Text {
 	return &ast.Text{Kind: ast.TextSpace}
 }
@@ -188,6 +193,26 @@ func ExprString(x ast.Expr) string {
 
 	case *ast.ConcatExpr:
 		return ExprString(v.X) + " # " + ExprString(v.Y)
+
+	case *ast.CmdText:
+		sb := strings.Builder{}
+		sb.WriteByte('\\')
+		sb.WriteString(v.Name)
+		if len(v.Values) == 0 {
+			if v.RBrace != gotok.NoPos {
+				sb.WriteString("{}")
+			}
+			return sb.String()
+		}
+		sb.WriteString("{")
+		for i, value := range v.Values {
+			sb.WriteString(ExprString(value))
+			if i < len(v.Values)-1 {
+				sb.WriteString(", ")
+			}
+		}
+		sb.WriteString("}")
+		return sb.String()
 
 	default:
 		return fmt.Sprintf("UnknownExpr(%v)", v)

@@ -239,9 +239,9 @@ func tok(s string) stringTok {
 	case s == `"`:
 		return stringTok{t: token.DoubleQuote, lit: ``, raw: `"`}
 	case s == ",":
-		return stringTok{t: token.StringComma, lit: "", raw: ","}
+		return stringTok{t: token.StringComma, lit: ",", raw: ","}
 	case s == "~":
-		return stringTok{t: token.StringNBSP, lit: "", raw: "~"}
+		return stringTok{t: token.StringNBSP, lit: "~", raw: "~"}
 	case s == "LBrace":
 		return stringTok{t: token.LBrace, lit: "", raw: "{"}
 	case s == "=":
@@ -284,8 +284,8 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 		{`"\$"`, toks(`"`, `\$`, `"`), nil},
 		// Extra leading '=' here and below because we differentiate a string brace
 		// from a declaration brace using a heuristic. If preceded by '=' or '{'
-		// assume a string brace. Use it for double quotes for alignment between
-		// similar test cases.
+		// assume that '{' is a string brace. Use it for double quotes for
+		// alignment between similar test cases.
 		{`={\$}`, toks("=", `{`, `\$`, `}`), nil},
 		{`{{\$}`, toks("LBrace", `{`, `\$`, `}`), nil},
 		// Escaped dollar signs
@@ -293,6 +293,12 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 		{`={$\$$}`, toks("=", `{`, `$\$$`, `}`), nil},
 		{`="\$\$"`, toks("=", `"`, `\$\$`, `"`), nil},
 		{`={\$\$}`, toks("=", `{`, `\$\$`, `}`), nil},
+		// Pound sign
+		{`="#"`, toks("=", `"`, `#`, `"`), nil},
+		{`={#}`, toks("=", `{`, `#`, `}`), nil},
+		// Latex commands
+		// TODO: Fix tokenizer with latex commands.
+		// {`="\url{foo$}"`, toks("=", `"`, `\url`, `{`, "foo$", `}`, `"`), nil},
 		// Escaped backslashes and special chars
 		{`="\\a"`, toks("=", `"`, `\\a`, `"`), nil},
 		{`={\\a}`, toks("=", `{`, `\\a`, `}`), nil},

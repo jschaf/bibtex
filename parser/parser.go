@@ -120,6 +120,13 @@ func (p *parser) next0() {
 		switch {
 		case p.tok.IsLiteral():
 			p.printTrace(s, p.lit)
+		case p.tok.IsStringLiteral():
+			lit := p.lit
+			// Simplify trace expression.
+			if lit != "" {
+				lit = `"` + lit + `"`
+			}
+			p.printTrace(s, lit)
 		case p.tok.IsOperator(), p.tok.IsCommand():
 			p.printTrace("\"" + s + "\"")
 		default:
@@ -386,8 +393,76 @@ func (p *parser) parseBasicLit() (l ast.Expr) {
 	return
 }
 
+func extractLatexCmdName(tok token.Token, lit string) string {
+	if tok != token.StringContents || lit == "" || lit[0] != '\\' {
+		return ""
+	}
+	switch lit {
+	case `\url`:
+		return "url"
+	case `\hyperref`:
+		return "hyperref"
+	}
+	return ""
+}
+
+func (p *parser) parseCmdURL(name string) ast.Expr {
+	urlCmd := &ast.CmdText{Cmd: p.pos, Name: name}
+	p.next()
+	p.expect(token.StringLBrace)
+	sb := strings.Builder{}
+	sb.Grow(32)
+	for p.tok != token.StringRBrace && p.tok != token.StringSpace {
+		switch p.tok {
+		case token.StringMath, token.StringNBSP, token.StringContents, token.StringSpecial, token.StringComma, token.StringHyphen:
+			sb.WriteString(p.lit)
+		default:
+			p.next()
+			return &ast.BadExpr{From: urlCmd.Cmd, To: p.pos}
+		}
+		p.next()
+	}
+	urlCmd.Values = append(urlCmd.Values, &ast.Text{
+		ValuePos: p.pos, Kind: ast.TextContent, Value: sb.String()})
+	if p.tok == token.StringSpace {
+		p.next()
+	}
+	p.expect(token.StringRBrace)
+	return urlCmd
+}
+
+func (p *parser) parseLatexCmd(name string) ast.Expr {
+	switch name {
+	case `url`, `hyperref`:
+		return p.parseCmdURL(name)
+	default:
+		p.next() // move forward
+		return &ast.BadExpr{From: p.pos, To: p.pos}
+	}
+}
+
 func (p *parser) parseText(depth int) (txt ast.Expr) {
-	if p.tok == token.StringLBrace {
+	switch p.tok {
+	case token.StringMath:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextMath, Value: p.lit}
+	case token.StringHyphen:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextHyphen, Value: p.lit}
+	case token.StringNBSP:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextNBSP, Value: p.lit}
+	case token.StringContents:
+		if n := extractLatexCmdName(p.tok, p.lit); n != "" {
+			return p.parseLatexCmd(n)
+		}
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextContent, Value: p.lit}
+	case token.StringSpace:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextSpace, Value: p.lit}
+	case token.StringSpecial:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextSpecial, Value: p.lit}
+	case token.StringComma:
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextComma, Value: p.lit}
+	case token.Illegal:
+		txt = &ast.BadExpr{From: p.pos, To: p.pos}
+	case token.StringLBrace: // recursive case
 		opener := p.pos
 		p.next()
 
@@ -400,34 +475,14 @@ func (p *parser) parseText(depth int) (txt ast.Expr) {
 			}
 			values = append(values, text)
 		}
-		txt = &ast.ParsedText{
+		p.next() // consume closing '}'
+		return &ast.ParsedText{
 			Depth:  depth,
 			Opener: opener,
 			Delim:  ast.BraceDelimiter,
 			Values: values,
 			Closer: p.pos,
 		}
-		p.next() // consume closing '}'
-		return
-	}
-
-	switch p.tok {
-	case token.StringMath:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextMath, Value: p.lit}
-	case token.StringHyphen:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextHyphen, Value: p.lit}
-	case token.StringNBSP:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextNBSP, Value: p.lit}
-	case token.StringContents:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextContent, Value: p.lit}
-	case token.StringSpace:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextSpace, Value: p.lit}
-	case token.StringSpecial:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextSpecial, Value: p.lit}
-	case token.StringComma:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextComma, Value: p.lit}
-	case token.Illegal:
-		txt = &ast.BadExpr{From: p.pos, To: p.pos}
 	default:
 		p.error(p.pos, "unknown text type: "+p.tok.String())
 	}
@@ -522,11 +577,7 @@ func (p *parser) parseTagStmt() *ast.TagStmt {
 	}
 	doc := p.leadComment
 	key := p.parseIdent()
-	if p.tok == token.Assign {
-		p.next()
-	} else {
-		p.expect(token.Assign) // use expect() error handling
-	}
+	p.expect(token.Assign)
 	val := p.parseExpr()
 	p.expectOptionalTagComma()
 	return &ast.TagStmt{
@@ -585,6 +636,45 @@ func (p *parser) parseAbbrevDecl() *ast.AbbrevDecl {
 	}
 }
 
+// fixUpFields alters val based on tag type. For example, a url tag doesn't
+// follow the normal Bibtex parsing rules because it's usually wrapped in a
+// \url{} macro.
+func fixUpFields(tag string, val ast.Expr) ast.Expr {
+	if tag == "url" {
+		txt, ok := val.(*ast.ParsedText)
+		if !ok || len(txt.Values) == 0 {
+			return val
+		}
+		child1, ok := txt.Values[0].(*ast.Text)
+		if !ok || !strings.HasPrefix(child1.Value, "http") {
+			return val
+		}
+		pos := child1.ValuePos
+		sb := strings.Builder{}
+		sb.Grow(32)
+		for _, child := range txt.Values {
+			if cTxt, ok := child.(*ast.Text); !ok {
+				return val
+			} else {
+				sb.WriteString(cTxt.Value)
+			}
+		}
+		return &ast.ParsedText{
+			Opener: txt.Opener,
+			Depth:  txt.Depth,
+			Delim:  txt.Delim,
+			Values: []ast.Expr{&ast.Text{
+				ValuePos: pos,
+				Kind:     ast.TextContent,
+				Value:    sb.String(),
+			}},
+			Closer: txt.Closer,
+		}
+	}
+
+	return val
+}
+
 func (p *parser) parseBibDecl() *ast.BibDecl {
 	if p.trace {
 		defer un(trace(p, "BibDecl"))
@@ -609,12 +699,13 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 			}
 			p.next()
 			val := p.parseExpr()
+			fixVal := fixUpFields(key.Name, val)
 			tag := &ast.TagStmt{
 				Doc:     doc,
 				NamePos: key.Pos(),
 				Name:    strings.ToLower(key.Name),
 				RawName: key.Name,
-				Value:   val,
+				Value:   fixVal,
 			}
 			tags = append(tags, tag)
 		}

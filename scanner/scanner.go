@@ -352,8 +352,10 @@ func (s *Scanner) scanInString() (pos gotok.Pos, tok token.Token, lit string) {
 		s.skipWhitespace()
 	case ',':
 		tok = token.StringComma
+		lit = ","
 	case '~':
 		tok = token.StringNBSP
+		lit = "~"
 	default:
 		// next reports unexpected BOMs - don't repeat
 		if ch != bom {

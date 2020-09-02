@@ -144,7 +144,7 @@ type (
 		Opener gotok.Pos // opening delimiter
 		Depth  int       // the brace depth
 		Delim  TextDelimiter
-		Values []Expr    // Text or ParsedText
+		Values []Expr    // Text, ParsedText, or CmdText
 		Closer gotok.Pos // closing delimiter
 	}
 
@@ -153,6 +153,14 @@ type (
 		ValuePos gotok.Pos // literal position
 		Kind     TextKind
 		Value    string // excludes delimiters for TextMath
+	}
+
+	// A CmdText node represents a piece of ParsedText that's a latex command.
+	CmdText struct {
+		Cmd    gotok.Pos // command position
+		Name   string    // command name without backslash, i.e. 'url'
+		Values []Expr    // parameters: Text, ParsedText, or CmdText
+		RBrace gotok.Pos // position of the closing }, if any
 	}
 
 	// A ConcatExpr node represents a bibtex concatenation like:
@@ -192,6 +200,18 @@ func (*ParsedText) exprNode() {}
 func (x *Text) Pos() gotok.Pos { return x.ValuePos }
 func (x *Text) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
 func (*Text) exprNode()        {}
+
+func (x *CmdText) Pos() gotok.Pos { return x.Cmd }
+func (x *CmdText) End() gotok.Pos {
+	if x.RBrace != gotok.NoPos {
+		return x.RBrace
+	}
+	if len(x.Values) == 0 {
+		return x.Cmd
+	}
+	return x.Values[len(x.Values)-1].Pos()
+}
+func (*CmdText) exprNode() {}
 
 func (x *ConcatExpr) Pos() gotok.Pos { return x.X.Pos() }
 func (x *ConcatExpr) End() gotok.Pos { return x.Y.Pos() }
