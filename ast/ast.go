@@ -84,8 +84,7 @@ const (
 	TextMath
 	TextHyphen
 	TextSpecial
-	TextEscaped
-	TextMacro
+	TextEscaped // \$ or \{
 )
 
 func (t TextKind) String() string {
@@ -106,8 +105,6 @@ func (t TextKind) String() string {
 		return "TextSpecial"
 	case TextEscaped:
 		return "TextEscaped"
-	case TextMacro:
-		return "TextMacro"
 	default:
 		return "UnknownTextKind"
 	}
@@ -150,7 +147,7 @@ type (
 		Opener gotok.Pos // opening delimiter
 		Depth  int       // the brace depth
 		Delim  TextDelimiter
-		Values []Expr    // Text, ParsedText, or CmdText
+		Values []Expr    // Text, ParsedText, or MacroText
 		Closer gotok.Pos // closing delimiter
 	}
 
@@ -161,11 +158,12 @@ type (
 		Value    string // excludes delimiters for TextMath
 	}
 
-	// A CmdText node represents a piece of ParsedText that's a latex command.
-	CmdText struct {
+	// A MacroText node represents a piece of ParsedText that's a latex macro
+	// invocation.
+	MacroText struct {
 		Cmd    gotok.Pos // command position
 		Name   string    // command name without backslash, i.e. 'url'
-		Values []Expr    // parameters: Text, ParsedText, or CmdText
+		Values []Expr    // parameters: Text, ParsedText, or MacroText
 		RBrace gotok.Pos // position of the closing }, if any
 	}
 
@@ -207,8 +205,8 @@ func (x *Text) Pos() gotok.Pos { return x.ValuePos }
 func (x *Text) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
 func (*Text) exprNode()        {}
 
-func (x *CmdText) Pos() gotok.Pos { return x.Cmd }
-func (x *CmdText) End() gotok.Pos {
+func (x *MacroText) Pos() gotok.Pos { return x.Cmd }
+func (x *MacroText) End() gotok.Pos {
 	if x.RBrace != gotok.NoPos {
 		return x.RBrace
 	}
@@ -217,7 +215,7 @@ func (x *CmdText) End() gotok.Pos {
 	}
 	return x.Values[len(x.Values)-1].Pos()
 }
-func (*CmdText) exprNode() {}
+func (*MacroText) exprNode() {}
 
 func (x *ConcatExpr) Pos() gotok.Pos { return x.X.Pos() }
 func (x *ConcatExpr) End() gotok.Pos { return x.Y.Pos() }

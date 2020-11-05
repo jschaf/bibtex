@@ -37,15 +37,27 @@ func BraceTextExpr(depth int, ss ...ast.Expr) *ast.ParsedText {
 // - If the string begins with '\' and has an alphabetical char, convert to
 //   command ast.TextMacro.
 // - Otherwise, convert to ast.Text.
-func BraceText(depth int, ss ...string) *ast.ParsedText {
+func BraceText(depth int, ss ...interface{}) *ast.ParsedText {
 	xs := make([]ast.Expr, len(ss))
 	for i, s := range ss {
-		xs[i] = ParseStringExpr(depth, s)
+		xs[i] = ParseAny(s)
 	}
 	return &ast.ParsedText{
 		Depth:  depth,
 		Delim:  ast.BraceDelimiter,
 		Values: xs,
+	}
+}
+
+// ParseAny converts s into an ast.Expr or panics.
+func ParseAny(s interface{}) ast.Expr {
+	switch x := s.(type) {
+	case ast.Expr:
+		return x
+	case string:
+		return ParseStringExpr(0, x)
+	default:
+		panic(fmt.Sprintf("unsupported type for ParseAny: %v", x))
 	}
 }
 
@@ -112,8 +124,8 @@ func Text(s string) *ast.Text {
 	return &ast.Text{Kind: ast.TextContent, Value: s}
 }
 
-func CmdText(name, arg string) *ast.CmdText {
-	return &ast.CmdText{Name: name, Values: []ast.Expr{Text(arg)}}
+func CmdText(name, arg string) *ast.MacroText {
+	return &ast.MacroText{Name: name, Values: []ast.Expr{Text(arg)}}
 }
 
 func WSpace() *ast.Text {
@@ -132,8 +144,19 @@ func Comma() *ast.Text {
 	return &ast.Text{Kind: ast.TextComma}
 }
 
-func Macro(name string) *ast.Text {
-	return &ast.Text{Kind: ast.TextMacro, Value: name}
+func Macro(name string, params ...interface{}) *ast.MacroText {
+	vals := make([]ast.Expr, len(params))
+	for i, param := range params {
+		vals[i] = ParseAny(param)
+	}
+	return &ast.MacroText{Name: name, Values: vals}
+}
+
+func Escaped(c rune) *ast.Text {
+	return &ast.Text{
+		Kind:  ast.TextEscaped,
+		Value: string(c),
+	}
 }
 
 func UnparsedText(s string) ast.Expr {
@@ -180,8 +203,6 @@ func ExprString(x ast.Expr) string {
 			return "$" + v.Value + "$"
 		case ast.TextContent:
 			return fmt.Sprintf("%q", v.Value)
-		case ast.TextMacro:
-			return fmt.Sprintf("Macro(%s)", v.Value)
 		default:
 			return "Text[" + v.Kind.String() + "](" + v.Value + ")"
 		}
@@ -205,8 +226,9 @@ func ExprString(x ast.Expr) string {
 	case *ast.ConcatExpr:
 		return ExprString(v.X) + " # " + ExprString(v.Y)
 
-	case *ast.CmdText:
+	case *ast.MacroText:
 		sb := strings.Builder{}
+		sb.WriteString("MacroText(")
 		sb.WriteByte('\\')
 		sb.WriteString(v.Name)
 		if len(v.Values) == 0 {
@@ -222,7 +244,7 @@ func ExprString(x ast.Expr) string {
 				sb.WriteString(", ")
 			}
 		}
-		sb.WriteString("}")
+		sb.WriteString("})")
 		return sb.String()
 
 	default:

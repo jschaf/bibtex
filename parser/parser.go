@@ -393,10 +393,10 @@ func (p *parser) parseBasicLit() (l ast.Expr) {
 	return
 }
 
-// parseMacroURL parses a TeX \url or \hyperref macro. This is separate because
+// parseMacroURL parses a TeX \url or \href macro. This is separate because
 // urls use common LaTeX characters like ~ for non-breaking spaces.
 func (p *parser) parseMacroURL(name string) ast.Expr {
-	urlCmd := &ast.CmdText{Cmd: p.pos, Name: name}
+	urlCmd := &ast.MacroText{Cmd: p.pos, Name: name}
 	p.next()
 	p.expect(token.StringLBrace)
 	sb := strings.Builder{}
@@ -411,8 +411,13 @@ func (p *parser) parseMacroURL(name string) ast.Expr {
 		}
 		p.next()
 	}
-	urlCmd.Values = append(urlCmd.Values, &ast.Text{
-		ValuePos: p.pos, Kind: ast.TextContent, Value: sb.String()})
+	urlCmd.Values = []ast.Expr{
+		&ast.Text{
+			ValuePos: p.pos,
+			Kind:     ast.TextContent,
+			Value:    sb.String(),
+		},
+	}
 	if p.tok == token.StringSpace {
 		p.next()
 	}
@@ -441,14 +446,14 @@ func (p *parser) parseText(depth int) (txt ast.Expr) {
 		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextComma, Value: p.lit}
 	case token.StringMacro:
 		switch p.lit {
-		case `url`, `hyperref`:
+		case `url`, `href`:
 			// Special case common macros.
 			txt = p.parseMacroURL(p.lit)
 		default:
-			txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextMacro, Value: p.lit}
+			txt = &ast.MacroText{Cmd: p.pos, Name: p.lit}
 		}
 	case token.StringBackslash:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextEscaped, Value: p.lit}
+		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextEscaped, Value: p.lit[1:]}
 	case token.Illegal:
 		txt = &ast.BadExpr{From: p.pos, To: p.pos}
 	case token.StringLBrace: // recursive case
