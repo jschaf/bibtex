@@ -77,34 +77,31 @@ const (
 type TextKind int
 
 const (
-	TextContent TextKind = iota
-	TextSpace
-	TextNBSP
-	TextComma
-	TextMath
-	TextHyphen
-	TextSpecial
-	TextEscaped // \$ or \{
+	TextComma TextKind = iota
+	TextContent
+	TextEscaped // \$ or \{, backslash not stored
+	TextHyphen  // - regular hyphen, important for author names
+	TextMath    // $x=1$
+	TextNBSP    // ~, non-breaking TeX space
+	TextSpace   // any consecutive whitespace '\n', '\r', '\t', ' ' in a bibtex string
 )
 
 func (t TextKind) String() string {
 	switch t {
-	case TextContent:
-		return "TextContent"
-	case TextSpace:
-		return "TextSpace"
-	case TextNBSP:
-		return "TextNBSP"
 	case TextComma:
 		return "TextComma"
-	case TextMath:
-		return "TextMath"
-	case TextHyphen:
-		return "TextHyphen"
-	case TextSpecial:
-		return "TextSpecial"
+	case TextContent:
+		return "TextContent"
 	case TextEscaped:
 		return "TextEscaped"
+	case TextMath:
+		return "TextMath"
+	case TextNBSP:
+		return "TextNBSP"
+	case TextSpace:
+		return "TextSpace"
+	case TextHyphen:
+		return "TextHyphen"
 	default:
 		return "UnknownTextKind"
 	}

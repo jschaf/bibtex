@@ -38,6 +38,7 @@ const (
 	FieldAuthor       Field = "author"
 	FieldBookTitle    Field = "booktitle"
 	FieldChapter      Field = "chapter"
+	EntryDOI          Field = "doi"
 	FieldCrossref     Field = "crossref"
 	FieldEdition      Field = "edition"
 	FieldEditor       Field = "editor"

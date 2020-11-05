@@ -38,17 +38,18 @@ func exprText(x ast.Expr) string {
 		switch t.Kind {
 		case ast.TextComma:
 			return ","
-		case ast.TextNBSP, ast.TextSpace:
-			return " "
 		case ast.TextContent:
+			return t.Value
+		case ast.TextEscaped:
 			return t.Value
 		case ast.TextHyphen:
 			return "-"
 		case ast.TextMath:
 			return "$" + t.Value + "$"
-		case ast.TextSpecial:
-			// TODO: handle accents
-			return t.Value
+		case ast.TextNBSP:
+			return " "
+		case ast.TextSpace:
+			return " "
 		default:
 			panic("unhandled ast.Text value: " + t.Value)
 		}
@@ -232,9 +233,6 @@ func parseDefault(idx int, xs []ast.Expr) string {
 			return "-"
 		case ast.TextMath:
 			return "$" + t.Value + "$"
-		case ast.TextSpecial:
-			// TODO: handle accents
-			return t.Value
 		default:
 			panic("unhandled ast.Text value: " + t.Value)
 		}
