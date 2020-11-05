@@ -1,7 +1,6 @@
 package bibtex
 
 import (
-	"github.com/jschaf/bibtex/scanner"
 	gotok "go/token"
 	"io"
 )
@@ -100,9 +99,4 @@ type Entry struct {
 func Read(r io.Reader) ([]Entry, error) {
 	entries, err := ResolveFile(gotok.NewFileSet(), "", r)
 	return entries, err
-}
-
-// IsValidCiteChar returns true if ch is a valid character for a citation key.
-func IsValidCiteChar(ch byte) bool {
-	return scanner.IsName(rune(ch))
 }
