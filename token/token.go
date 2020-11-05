@@ -35,16 +35,18 @@ const (
 
 	// Tokens delimiting strings or contained in a bibtex string literal.
 	stringLiteralBegin
-	DoubleQuote    // " - delimits a string
-	StringLBrace   // {
-	StringRBrace   // }
-	StringSpace    // any consecutive whitespace '\n', '\r', '\t', ' ' in a bibtex string
-	StringNBSP     // ~ - non-breakable space in LaTeX
-	StringContents // anything else inside a string
-	StringHyphen   // - a hyphen counts as a token separator when parsing names
-	StringSpecial  // {\...} - any LBrace followed by a backslash through the RBrace
-	StringMath     // $...$
-	StringComma    // , - useful for parsing author names
+	DoubleQuote     // " - delimits a string
+	StringLBrace    // {
+	StringRBrace    // }
+	StringSpace     // any consecutive whitespace '\n', '\r', '\t', ' ' in a bibtex string
+	StringNBSP      // ~ - non-breakable space in LaTeX
+	StringContents  // anything else inside a string
+	StringHyphen    // - a hyphen counts as a token separator when parsing names
+	StringMath      // $...$
+	StringComma     // , - useful for parsing author names
+	StringBackslash // \&, \$, \{ - single character escape for special bibtex chars
+	StringAccent    // \'{o} == ȯ, \ae == æ
+	StringMacro     // \url, \(, \[, \, - TeX macro, either alphabetical or a single non-alphabetical char
 	stringLiteralEnd
 
 	// Operators and delimiters.
@@ -77,16 +79,18 @@ var tokens = [...]string{
 	Number:      "Number",
 
 	// String literals
-	DoubleQuote:    "DoubleQuote",
-	StringLBrace:   "StringLBrace",
-	StringRBrace:   "StringRBrace",
-	StringSpace:    "StringSpace",
-	StringNBSP:     "NBSP",
-	StringContents: "StringContents",
-	StringHyphen:   "StringHyphen",
-	StringSpecial:  "StringSpecial",
-	StringMath:     "StringMath",
-	StringComma:    "StringComma",
+	DoubleQuote:     "DoubleQuote",
+	StringLBrace:    "StringLBrace",
+	StringRBrace:    "StringRBrace",
+	StringSpace:     "StringSpace",
+	StringNBSP:      "NBSP",
+	StringContents:  "StringContents",
+	StringHyphen:    "StringHyphen",
+	StringMath:      "StringMath",
+	StringComma:     "StringComma",
+	StringBackslash: "StringBackslash",
+	StringAccent:    "StringAccent",
+	StringMacro:     "StringMacro",
 
 	// Operators and delimiters
 	Assign: "Assign",

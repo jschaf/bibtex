@@ -163,6 +163,8 @@ func isLetter(ch rune) bool {
 	return 'a' <= lower(ch) && lower(ch) <= 'z' || ch == '_' || ch >= utf8.RuneSelf && unicode.IsLetter(ch)
 }
 
+func IsAsciiLetter(ch rune) bool { return 'a' <= lower(ch) && lower(ch) <= 'z' }
+
 // IsName returns true if the char is a valid bibtex cite char.
 // Taken from the btparse docs:
 // https://metacpan.org/pod/release/AMBS/Text-BibTeX-0.66/btparse/doc/bt_language.pod
@@ -289,6 +291,84 @@ func (s *Scanner) scanStringMath() (token.Token, string) {
 	return token.StringMath, string(s.src[offs : s.offset-1])
 }
 
+// scanStringEscape scans a string beginning with a backslash.
+//
+// A string beginning with a backslash can be an:
+// - escape sequence for bibtex chars like \{ and \}
+// - beginning of a latex command like \url{www.example.com}
+// - beginning of a character accent like \^o to represent ô.
+//
+// See https://tex.stackexchange.com/a/66671/59048.
+func (s *Scanner) scanStringEscape() (token.Token, string) {
+	offs := s.offset - 1 // initial backslash already consumed
+	switch s.ch {
+	case '\\', '$', '&', '%', '{', '}':
+		// a single non-alphabetical character
+		s.next()
+		return token.StringBackslash, string(s.src[offs:s.offset])
+	case '\'', '~', '.', '^', '=', '`':
+		s.next()
+		return s.scanSpecialCharStringAccent()
+	case ',', ';', '[', ']', '(', ')':
+		// any single non-alphabetical character can be macro.
+		s.next()
+		return token.StringMacro, string(s.src[offs:s.offset])
+	}
+
+	// It must be a macro made up of ascii letters.
+	lo := s.offset
+	for !s.isSpecialStringChar(s.ch) && s.ch != 0 {
+		s.next()
+	}
+	name := string(s.src[lo:s.offset])
+	if len(name) == 0 {
+		s.error(offs, "expected macro name after backslash, got nothing")
+		return token.Illegal, string(s.src[offs : s.offset-1])
+	}
+	// Check that it's only ascii letters.
+	for _, c := range name {
+		if !IsAsciiLetter(c) {
+			s.errorf(offs, "expected command name to only contain ascii letters, got %q", name)
+			return token.Illegal, string(s.src[offs : s.offset-1])
+		}
+	}
+	return token.StringMacro, name
+}
+
+// scanSpecialCharStringAccent scans a string that begins with a backslash
+// followed by a special char like \'o, \'{o} or \^{o}.
+func (s *Scanner) scanSpecialCharStringAccent() (token.Token, string) {
+	offs := s.offset - 1 // initial backslash already consumed
+
+	s.next() // consume special char
+	s.next() // consume brace or letter
+	if s.ch == '{' {
+		s.next() // consume letter that's accented
+		if !IsAsciiLetter(s.ch) {
+			s.errorf(offs, "expected ascii letter after accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
+			return token.Illegal, ""
+		}
+		s.next() // consume right brace '}'
+		if s.ch != '}' {
+			s.errorf(offs, "expected right brace after accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
+			return token.Illegal, ""
+		}
+	} else {
+		// unbraced accent like \^o
+		s.next()
+		if !IsAsciiLetter(s.ch) {
+			s.errorf(offs, "expected ascii letter after accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
+			return token.Illegal, ""
+		}
+	}
+	if s.next(); s.ch != '}' {
+		s.errorf(offs, "expected right brace to close accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
+		return token.Illegal, ""
+	}
+	return token.StringAccent, string(s.src[offs:s.offset])
+
+}
+
 func (s *Scanner) isSpecialStringChar(ch rune) bool {
 	if ch == '"' {
 		// A double quote is only special at brace depth 0 when we started the
@@ -298,6 +378,7 @@ func (s *Scanner) isSpecialStringChar(ch rune) bool {
 	return ch == '$' || ch == '{' || ch == '}' ||
 		ch == eof || ch == ',' ||
 		ch == '~' || // nbsp
+		ch == '\\' || // escape chars or begin a macro
 		ch == '\n' || ch == '\r' || ch == ' ' || ch == '\t' // white space
 }
 
@@ -337,6 +418,8 @@ func (s *Scanner) scanInString() (pos gotok.Pos, tok token.Token, lit string) {
 			tok = token.StringContents
 			lit = `"`
 		}
+	case '\\':
+		tok, lit = s.scanStringEscape()
 	case '{':
 		s.braceDepth += 1
 		tok = token.StringLBrace

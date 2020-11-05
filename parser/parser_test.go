@@ -216,8 +216,11 @@ func TestParseFile_BibDecl_ModeParseStrings(t *testing.T) {
 		{`@article { cite_key, title = {\href{https://nyt.com/}{Dollar \$140}} }`,
 			asts.WithBibKeys("cite_key"),
 			asts.WithBibTags("title",
-				asts.BraceText(0, `\href`, "{https://nyt.com/}", `{Dollar \$140}`)),
-		},
+				asts.BraceText(0, `\href`, "{https://nyt.com/}", `{Dollar \$140}`))},
+		{`@article { cite_key, title = {foo \& bar} }`,
+			asts.WithBibKeys("cite_key"),
+			asts.WithBibTags("title",
+				asts.BraceText(0, `foo`, `\&`, `bar`))},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {

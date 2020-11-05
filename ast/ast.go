@@ -84,6 +84,8 @@ const (
 	TextMath
 	TextHyphen
 	TextSpecial
+	TextEscaped
+	TextMacro
 )
 
 func (t TextKind) String() string {
@@ -102,6 +104,10 @@ func (t TextKind) String() string {
 		return "TextHyphen"
 	case TextSpecial:
 		return "TextSpecial"
+	case TextEscaped:
+		return "TextEscaped"
+	case TextMacro:
+		return "TextMacro"
 	default:
 		return "UnknownTextKind"
 	}
@@ -132,7 +138,7 @@ type (
 	}
 
 	// An UnparsedText is a bibtex string as it appears in source. Only appears
-	// when Mode.ParseStrings is passed to ParseFile.
+	// when Mode.ParseStrings == 0 is passed to ParseFile.
 	UnparsedText struct {
 		ValuePos gotok.Pos   // literal position
 		Kind     token.Token // token.String or token.BraceString

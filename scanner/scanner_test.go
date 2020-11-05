@@ -233,31 +233,41 @@ func errs(es ...string) []string {
 }
 
 func tok(s string) stringTok {
+	// Conditional tests
 	switch {
 	case strings.TrimSpace(s) == "":
 		return stringTok{t: token.StringSpace, lit: "", raw: s}
-	case s == `"`:
-		return stringTok{t: token.DoubleQuote, lit: ``, raw: `"`}
-	case s == ",":
-		return stringTok{t: token.StringComma, lit: ",", raw: ","}
-	case s == "~":
-		return stringTok{t: token.StringNBSP, lit: "~", raw: "~"}
-	case s == "LBrace":
-		return stringTok{t: token.LBrace, lit: "", raw: "{"}
-	case s == "=":
-		return stringTok{t: token.Assign, lit: "", raw: "="}
-	case s == "{":
-		return stringTok{t: token.StringLBrace, lit: "", raw: "{"}
-	case s == "}":
-		return stringTok{t: token.StringRBrace, lit: "", raw: "}"}
 	case strings.HasPrefix(s, "$"):
 		if !strings.HasSuffix(s, "$") || len(s) < 2 {
 			panic("tok begins with $ but doesn't end with $")
 		}
 		return stringTok{t: token.StringMath, lit: s[1 : len(s)-1], raw: s}
-	default:
-		return stringTok{t: token.StringContents, lit: s, raw: s}
+	case strings.HasPrefix(s, `\`) && len(s) > 1 && IsAsciiLetter(rune(s[1])):
+		return stringTok{t: token.StringMacro, lit: s, raw: s}
 	}
+
+	switch s {
+	case `\\`, `\$`, `\&`, `\%`, `\{`, `\}`:
+		return stringTok{t: token.StringBackslash, lit: s, raw: s}
+	case `\,`, `\;`, `\[`, `\]`, `\(`, `\)`:
+		return stringTok{t: token.StringMacro, lit: s, raw: s}
+	case `"`:
+		return stringTok{t: token.DoubleQuote, lit: ``, raw: `"`}
+	case ",":
+		return stringTok{t: token.StringComma, lit: ",", raw: ","}
+	case "~":
+		return stringTok{t: token.StringNBSP, lit: "~", raw: "~"}
+	case "LBrace":
+		return stringTok{t: token.LBrace, lit: "", raw: "{"}
+	case "=":
+		return stringTok{t: token.Assign, lit: "", raw: "="}
+	case "{":
+		return stringTok{t: token.StringLBrace, lit: "", raw: "{"}
+	case "}":
+		return stringTok{t: token.StringRBrace, lit: "", raw: "}"}
+	}
+
+	return stringTok{t: token.StringContents, lit: s, raw: s}
 }
 
 // toks returns a slice of stringTok by converting each string t into a
@@ -282,17 +292,19 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 		{`""`, toks(), nil},
 		{`{}`, toks(), nil},
 		{`"\$"`, toks(`"`, `\$`, `"`), nil},
-		// Extra leading '=' here and below because we differentiate a string brace
-		// from a declaration brace using a heuristic. If preceded by '=' or '{'
-		// assume that '{' is a string brace. Use it for double quotes for
-		// alignment between similar test cases.
+		// Extra leading '=' below because we differentiate a string brace from a
+		// declaration brace using a heuristic. If preceded by '=' or '{' assume
+		// that '{' is a string brace. Also add the equals sign for double quote
+		// delimited strings to maintain alignment between similar test cases.
 		{`={\$}`, toks("=", `{`, `\$`, `}`), nil},
 		{`{{\$}`, toks("LBrace", `{`, `\$`, `}`), nil},
 		// Escaped dollar signs
 		{`="$\$$"`, toks("=", `"`, `$\$$`, `"`), nil},
 		{`={$\$$}`, toks("=", `{`, `$\$$`, `}`), nil},
-		{`="\$\$"`, toks("=", `"`, `\$\$`, `"`), nil},
-		{`={\$\$}`, toks("=", `{`, `\$\$`, `}`), nil},
+		{`="\$\$"`, toks("=", `"`, `\$`, `\$`, `"`), nil},
+		{`={\$\$}`, toks("=", `{`, `\$`, `\$`, `}`), nil},
+		// Escaped characters
+		{`={\&}`, toks("=", `{`, `\&`, `}`), nil},
 		// Pound sign
 		{`="#"`, toks("=", `"`, `#`, `"`), nil},
 		{`={#}`, toks("=", `{`, `#`, `}`), nil},
@@ -300,8 +312,8 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 		// TODO: Fix tokenizer with latex commands.
 		// {`="\url{foo$}"`, toks("=", `"`, `\url`, `{`, "foo$", `}`, `"`), nil},
 		// Escaped backslashes and special chars
-		{`="\\a"`, toks("=", `"`, `\\a`, `"`), nil},
-		{`={\\a}`, toks("=", `{`, `\\a`, `}`), nil},
+		{`="\\a"`, toks("=", `"`, `\\`, `a`, `"`), nil},
+		{`={\\a}`, toks("=", `{`, `\\`, `a`, `}`), nil},
 		{`="\{"`, toks("=", `"`, `\{`, `"`), nil},
 		{`={\{}`, toks("=", `{`, `\{`, `}`), nil},
 		{`="\}"`, toks("=", `"`, `\}`, `"`), nil},

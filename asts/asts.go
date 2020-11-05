@@ -4,6 +4,7 @@ package asts
 import (
 	"fmt"
 	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/scanner"
 	"github.com/jschaf/bibtex/token"
 	gotok "go/token"
 	"strconv"
@@ -33,6 +34,8 @@ func BraceTextExpr(depth int, ss ...ast.Expr) *ast.ParsedText {
 // - If the string begins with '{' and ends with '}', convert to brace text
 //   recursively by removing the braces and splitting on space.
 // - If the string is ',', convert to ast.TextComma.
+// - If the string begins with '\' and has an alphabetical char, convert to
+//   command ast.TextMacro.
 // - Otherwise, convert to ast.Text.
 func BraceText(depth int, ss ...string) *ast.ParsedText {
 	xs := make([]ast.Expr, len(ss))
@@ -73,6 +76,8 @@ func ParseStringExpr(depth int, s string) ast.Expr {
 		return BraceTextExpr(depth+1, xs...)
 	case s == ",":
 		return Comma()
+	case len(s) >= 2 && s[0] == '\\' && scanner.IsAsciiLetter(rune(s[1])):
+		return Macro(s[1:]) // drop backslash
 	default:
 		return Text(s)
 	}
@@ -127,6 +132,10 @@ func Comma() *ast.Text {
 	return &ast.Text{Kind: ast.TextComma}
 }
 
+func Macro(name string) *ast.Text {
+	return &ast.Text{Kind: ast.TextMacro, Value: name}
+}
+
 func UnparsedText(s string) ast.Expr {
 	return &ast.UnparsedText{
 		Kind:  token.String,
@@ -171,6 +180,8 @@ func ExprString(x ast.Expr) string {
 			return "$" + v.Value + "$"
 		case ast.TextContent:
 			return fmt.Sprintf("%q", v.Value)
+		case ast.TextMacro:
+			return fmt.Sprintf("Macro(%s)", v.Value)
 		default:
 			return "Text[" + v.Kind.String() + "](" + v.Value + ")"
 		}
