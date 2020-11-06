@@ -57,47 +57,71 @@ func exprText(x ast.Expr) string {
 		left := exprText(t.X)
 		right := exprText(t.Y)
 		return left + right
+	case *ast.MacroText:
+		// Skip the commands and only write the args.
+		sb := strings.Builder{}
+		sb.Grow(16)
+		for _, v := range t.Values {
+			d := exprText(v)
+			sb.WriteString(d)
+		}
+		return sb.String()
 	default:
 		panic("unhandled ast.Expr value")
 	}
 }
 
-func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]Entry, error) {
+// renderEntryText renders an ASTEntry into the plain text Entry.
+func renderEntryText(e ASTEntry) (Entry, error) {
+	normE := Entry{
+		Key:  e.Key,
+		Type: e.Type,
+		Tags: make(map[Field]string),
+	}
+	for name, tag := range e.Tags {
+		switch name {
+		case FieldAuthor:
+			if authors, ok := tag.(*ast.ParsedText); ok {
+				author, err := ResolveAuthors(authors)
+				if err != nil {
+					return Entry{}, fmt.Errorf("resolve authors in key %v: %w", name, err)
+				}
+				normE.Author = author
+			}
+
+		case FieldEditor:
+			if editors, ok := tag.(*ast.ParsedText); ok {
+				editor, err := ResolveAuthors(editors)
+				if err != nil {
+					return Entry{}, fmt.Errorf("resolve editors in key %v: %w", name, err)
+				}
+				normE.Editor = editor
+			}
+		default:
+			normE.Tags[name] = exprText(tag)
+		}
+	}
+	return normE, nil
+}
+
+func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]ASTEntry, error) {
 	f, err := parser.ParseFile(fset, filename, src, parser.ParseStrings)
 	if err != nil {
 		return nil, err
 	}
-	entries := make([]Entry, 0, len(f.Entries))
+	entries := make([]ASTEntry, 0, len(f.Entries))
 	for _, rawE := range f.Entries {
 		if _, ok := rawE.(*ast.BibDecl); !ok {
 			continue
 		}
 		bibDecl := rawE.(*ast.BibDecl)
-		normE := Entry{
+		normE := ASTEntry{
 			Key:  bibDecl.Key.Name,
 			Type: bibDecl.Type,
-			Tags: make(map[Field]string),
+			Tags: make(map[Field]ast.Expr),
 		}
 		for _, tag := range bibDecl.Tags {
-			switch tag.Name {
-			case FieldAuthor:
-				if as, ok := tag.Value.(*ast.ParsedText); ok {
-					normE.Author, err = ResolveAuthors(as)
-					if err != nil {
-						return nil, fmt.Errorf("resolve authors in key %v: %w", bibDecl.Key.Name, err)
-					}
-				}
-
-			case FieldEditor:
-				if as, ok := tag.Value.(*ast.ParsedText); ok {
-					normE.Editor, err = ResolveAuthors(as)
-					if err != nil {
-						return nil, fmt.Errorf("resolve authors in key %v: %w", bibDecl.Key.Name, err)
-					}
-				}
-			default:
-				normE.Tags[tag.Name] = exprText(tag.Value)
-			}
+			normE.Tags[tag.Name] = tag.Value
 		}
 		entries = append(entries, normE)
 	}

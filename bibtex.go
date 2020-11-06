@@ -1,6 +1,8 @@
 package bibtex
 
 import (
+	"fmt"
+	"github.com/jschaf/bibtex/ast"
 	gotok "go/token"
 	"io"
 )
@@ -87,17 +89,48 @@ func (a Author) IsOthers() bool {
 	return a.First == "" && a.Prefix == "" && a.Last == "others" && a.Suffix == ""
 }
 
-// Entry is a Bibtex entry, like an @article{} entry.
+// ASTEntry is a Bibtex entry, like an @article{} entry, that provides AST for
+// each tag in the entry.
+type ASTEntry struct {
+	// The type of entry, i.e. the "article" in @article{foo}.
+	Type EntryType
+	// The cite key of the entry, i.e. the "foo" in @article{foo, title = "bar"}.
+	Key CiteKey
+	// Map of the lowercase tag name to the expression for the tag.
+	Tags map[Field]ast.Expr
+}
+
+// Entry is a Bibtex entry, like an @article{} entry, that provides the rendered
+// text of the entry.
 type Entry struct {
 	Type   EntryType
 	Key    CiteKey
 	Author []Author
 	Editor []Author
-	Title  string
 	Tags   map[Field]string
 }
 
+// Read reads all bibtex entries as plain text from the reader.
 func Read(r io.Reader) ([]Entry, error) {
+	astEntries, err := ReadAST(r)
+	if err != nil {
+		return nil, fmt.Errorf("read bibtex entries: %w", err)
+	}
+
+	entries := make([]Entry, len(astEntries))
+	for i, astEntry := range astEntries {
+		entry, err := renderEntryText(astEntry)
+		if err != nil {
+			return nil, fmt.Errorf("render bibtex entry as text: %w", err)
+		}
+		entries[i] = entry
+	}
+	return entries, nil
+}
+
+// ReadAST reads all bibtex entries with the AST for each tag in the entry
+// from the reader.
+func ReadAST(r io.Reader) ([]ASTEntry, error) {
 	entries, err := ResolveFile(gotok.NewFileSet(), "", r)
 	return entries, err
 }

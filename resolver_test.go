@@ -9,54 +9,23 @@ import (
 	"github.com/jschaf/bibtex/parser"
 )
 
-func author(names ...string) Author {
-	switch len(names) {
-	case 0:
-		panic("need at least 1 name")
-	case 1:
-		return Author{
-			Last: names[0],
-		}
-	case 2:
-		return Author{
-			First: names[0],
-			Last:  names[1],
-		}
-	case 3:
-		return Author{
-			First:  names[0],
-			Prefix: names[1],
-			Last:   names[2],
-		}
-	case 4:
-		return Author{
-			First:  names[0],
-			Prefix: names[1],
-			Last:   names[2],
-			Suffix: names[3],
-		}
-	default:
-		panic("too many names")
-	}
-}
-
 func TestResolveAuthors_single(t *testing.T) {
 	tests := []struct {
 		authors string
 		want    Author
 	}{
-		{"Last", author("Last")},
-		{"First Last", author("First", "Last")},
-		{"First last", author("First", "last")},
-		{"last", author("last")},
-		{"First von Last", author("First", "von", "Last")},
+		{"Last", newAuthor("Last")},
+		{"First Last", newAuthor("First", "Last")},
+		{"First last", newAuthor("First", "last")},
+		{"last", newAuthor("last")},
+		{"First von Last", newAuthor("First", "von", "Last")},
 		// {"First aa Von bb Last", author("First", "aa Von bb", "Last")},
-		{"von Beethoven, Ludwig", author("Ludwig", "von", "Beethoven")},
-		{"{von Beethoven}, Ludwig", author("Ludwig", "von Beethoven")},
-		{"Jean-Paul Sartre", author("Jean-Paul", "Sartre")},
-		{"First von Last", author("First", "von", "Last")},
+		{"von Beethoven, Ludwig", newAuthor("Ludwig", "von", "Beethoven")},
+		{"{von Beethoven}, Ludwig", newAuthor("Ludwig", "von Beethoven")},
+		{"Jean-Paul Sartre", newAuthor("Jean-Paul", "Sartre")},
+		{"First von Last", newAuthor("First", "von", "Last")},
 		{"Charles Louis Xavier Joseph de la Vallee Poussin",
-			author("Charles Louis Xavier Joseph", "de la", "Vallee Poussin"),
+			newAuthor("Charles Louis Xavier Joseph", "de la", "Vallee Poussin"),
 		},
 	}
 	for _, tt := range tests {
@@ -79,11 +48,11 @@ func TestResolveAuthors_multiple(t *testing.T) {
 		want    []Author
 		wantErr bool
 	}{
-		{"Last and Last2", []Author{author("Last"), author("Last2")}, false},
+		{"Last and Last2", []Author{newAuthor("Last"), newAuthor("Last2")}, false},
 		// double and should not cause a crash, instead it stops at the first empty and returns and err
-		{"Last3 and and Last4", []Author{author("Last3")}, true},
-		{"F1 L1 and F2 L2", []Author{author("F1", "L1"), author("F2", "L2")}, false},
-		{"F1 L1 and L2, F2", []Author{author("F1", "L1"), author("F2", "L2")}, false},
+		{"Last3 and and Last4", []Author{newAuthor("Last3")}, true},
+		{"F1 L1 and F2 L2", []Author{newAuthor("F1", "L1"), newAuthor("F2", "L2")}, false},
+		{"F1 L1 and L2, F2", []Author{newAuthor("F1", "L1"), newAuthor("F2", "L2")}, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.authors, func(t *testing.T) {
@@ -110,19 +79,19 @@ func TestResolveFile(t *testing.T) {
 		{"@article{key, author = {Foo Bar}}", []Entry{
 			{Type: EntryArticle, Key: "key",
 				Tags:   make(map[Field]string),
-				Author: []Author{author("Foo", "Bar")}},
+				Author: []Author{newAuthor("Foo", "Bar")}},
 		}},
 		{"@article{abc, author = {Moir, Mark and Scherer,III, William N.}}", []Entry{
 			{Type: EntryArticle, Key: "abc",
 				Tags: make(map[Field]string),
 				Author: []Author{
-					author("Mark", "Moir"),
-					author("William N.", "", "Scherer", "III")}},
+					newAuthor("Mark", "Moir"),
+					newAuthor("William N.", "", "Scherer", "III")}},
 		}},
 		{"@article{ rfc1812, author = {F. {Baker, ed.}}}", []Entry{
 			{Type: EntryArticle, Key: "rfc1812",
 				Tags:   make(map[Field]string),
-				Author: []Author{author("F.", "Baker, ed.")}},
+				Author: []Author{newAuthor("F.", "Baker, ed.")}},
 		}},
 	}
 
