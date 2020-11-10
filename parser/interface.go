@@ -48,7 +48,7 @@ const (
 	AllErrors                          // report all errors (not just the first 10 on different lines)
 )
 
-// ParseFile parses the source code of a single Go source file and returns
+// ParseFile parses the source code of a single bibtex source file and returns
 // the corresponding ast.File node. The source code may be provided via
 // the filename of the source file, or via the src parameter.
 //
@@ -88,7 +88,7 @@ func ParseFile(fset *gotok.FileSet, filename string, src interface{}, mode Mode)
 
 		// set result values
 		if f == nil {
-			// source is not a valid Go source file - satisfy
+			// source is not a valid bibtex source file - satisfy
 			// ParseFile API and return a valid (but) empty
 			// *ast.File
 			f = &ast.File{

@@ -101,7 +101,7 @@ type ASTEntry struct {
 }
 
 // Entry is a Bibtex entry, like an @article{} entry, that provides the rendered
-// text of the entry.
+// plain text of the entry.
 type Entry struct {
 	Type EntryType
 	Key  CiteKey
