@@ -373,7 +373,7 @@ func (p *parser) parseBasicLit() (l ast.Expr) {
 	case token.BraceString, token.String:
 		l = &ast.UnparsedText{
 			ValuePos: p.pos,
-			Kind:     p.tok,
+			Type:     p.tok,
 			Value:    p.lit,
 		}
 		p.next()

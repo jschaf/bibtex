@@ -13,7 +13,7 @@ import (
 
 func UnparsedBraceText(s string) *ast.UnparsedText {
 	return &ast.UnparsedText{
-		Kind:  token.BraceString,
+		Type:  token.BraceString,
 		Value: s,
 	}
 }
@@ -154,7 +154,7 @@ func Escaped(c rune) *ast.TextEscaped {
 
 func UnparsedText(s string) ast.Expr {
 	return &ast.UnparsedText{
-		Kind:  token.String,
+		Type:  token.String,
 		Value: s,
 	}
 }
@@ -177,7 +177,7 @@ func ExprString(x ast.Expr) string {
 	case *ast.Number:
 		return "Number(" + v.Value + ")"
 	case *ast.UnparsedText:
-		if v.Kind == token.String {
+		if v.Type == token.String {
 			return "UnparsedText(\"" + v.Value + "\")"
 		} else {
 			return "UnparsedText({" + v.Value + "})"
