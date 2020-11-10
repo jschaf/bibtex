@@ -22,7 +22,7 @@ func renderEntryText(e ASTEntry, renderer *render.TextRenderer) (Entry, error) {
 	normE := Entry{
 		Key:  e.Key,
 		Type: e.Type,
-		Tags: make(map[Field]string),
+		Tags: make(map[Field]ast.Expr),
 	}
 	for name, tag := range e.Tags {
 		switch name {
@@ -44,12 +44,13 @@ func renderEntryText(e ASTEntry, renderer *render.TextRenderer) (Entry, error) {
 				normE.Editor = editor
 			}
 		default:
-			sb := &strings.Builder{}
-			sb.Grow(16)
-			if err := renderer.Render(sb, tag); err != nil {
-				return Entry{}, fmt.Errorf("render entry tag %s: %w", name, err)
-			}
-			normE.Tags[name] = sb.String()
+			// TODO: fix me
+			// sb := &strings.Builder{}
+			// sb.Grow(16)
+			// if err := renderer.Render(sb, tag); err != nil {
+			// 	return Entry{}, fmt.Errorf("render entry tag %s: %w", name, err)
+			// }
+			// normE.Tags[name] = sb.String()
 		}
 	}
 	return normE, nil

@@ -3,6 +3,7 @@ package bibtex
 import (
 	"fmt"
 	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/parser"
 	"github.com/jschaf/bibtex/render"
 	gotok "go/token"
 	"io"
@@ -90,6 +91,100 @@ func (a Author) IsOthers() bool {
 	return a.First == "" && a.Prefix == "" && a.Last == "others" && a.Suffix == ""
 }
 
+// Bibtex contains methods for parsing and rendering bibtex.
+type Bibtex struct {
+	usePresets          bool
+	parserMode          parser.Mode
+	textRenderOverrides map[ast.TextKind]render.TextRendererFunc
+	exprRenderer        render.ExprRenderer
+}
+
+type Option func(*Bibtex)
+
+// WithParserMode sets the parser options overwriting any previous parser
+// options. parser.Mode is a bitflag so use bit-or for multiple flags:
+//     WithParserMode(parser.ParserStrings|parser.Trace)
+func WithParserMode(mode parser.Mode) Option {
+	return func(b *Bibtex) {
+		b.parserMode = mode
+	}
+}
+
+func WithTextRenderer(kind ast.TextKind, r render.TextRendererFunc) Option {
+	return func(b *Bibtex) {
+		b.textRenderOverrides[kind] = r
+	}
+}
+
+func New(opts ...Option) *Bibtex {
+	b := &Bibtex{
+		parserMode:          parser.ParseStrings,
+		textRenderOverrides: make(map[ast.TextKind]render.TextRendererFunc),
+	}
+	for _, opt := range opts {
+		opt(b)
+	}
+	return b
+}
+
+func (b *Bibtex) Parse(r io.Reader) (*ast.File, error) {
+	f, err := parser.ParseFile(gotok.NewFileSet(), "", r, b.parserMode)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+// Resolve resolves all bibtex entries from an AST. The AST is a faithful
+// representation of source code. By default, resolving the AST means replacing
+// all abbreviation expressions with the value, inlining concatenation
+// expressions, simplifying tag values by replacing TeX quote macros with
+// Unicode graphemes, and stripping Tex macros.
+//
+// The exact resolve steps are configurable via functional options passed to
+// bibtex.New.
+func (b *Bibtex) Resolve(node ast.Node) ([]Entry, error) {
+	switch n := node.(type) {
+	case *ast.Package:
+		entries := make([]Entry, 0, len(n.Files)*4)
+		for _, file := range n.Files {
+			for _, decl := range file.Entries {
+				if decl, ok := decl.(*ast.BibDecl); ok {
+					entries = append(entries, b.resolveEntry(decl))
+				}
+			}
+		}
+		return entries, nil
+
+	case *ast.File:
+		entries := make([]Entry, 0, len(n.Entries))
+		for _, decl := range n.Entries {
+			if decl, ok := decl.(*ast.BibDecl); ok {
+				entries = append(entries, b.resolveEntry(decl))
+			}
+		}
+		return entries, nil
+
+	case *ast.BibDecl:
+		return []Entry{b.resolveEntry(n)}, nil
+
+	default:
+		return nil, fmt.Errorf("bibtex.Resolve - node %T cannot be resolved into entries", node)
+	}
+}
+
+func (b *Bibtex) resolveEntry(decl *ast.BibDecl) Entry {
+	entry := Entry{
+		Key:  decl.Key.Name,
+		Type: decl.Type,
+		Tags: make(map[Field]ast.Expr),
+	}
+	for _, tag := range decl.Tags {
+		entry.Tags[tag.Name] = tag.Value
+	}
+	return entry
+}
+
 // ASTEntry is a Bibtex entry, like an @article{} entry, that provides AST for
 // each tag in the entry.
 type ASTEntry struct {
@@ -113,7 +208,8 @@ type Entry struct {
 	// The parsed editors. The unparsed editors are available in
 	// Tags[FieldEditor].
 	Editor []Author
-	Tags   map[Field]string
+	// All tags in the entry with the corresponding expression value.
+	Tags map[Field]ast.Expr
 }
 
 // Parse reads all bibtex entries with the AST for each tag in the entry
@@ -131,7 +227,7 @@ func Read(r io.Reader) ([]Entry, error) {
 	}
 
 	entries := make([]Entry, len(astEntries))
-	renderer := render.NewTextRenderer()
+	renderer := render.NewTextRenderer(map[ast.TextKind]render.TextRendererFunc{})
 	for i, astEntry := range astEntries {
 		entry, err := renderEntryText(astEntry, renderer)
 		if err != nil {
