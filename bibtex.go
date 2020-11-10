@@ -3,6 +3,7 @@ package bibtex
 import (
 	"fmt"
 	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/render"
 	gotok "go/token"
 	"io"
 )
@@ -130,8 +131,9 @@ func Read(r io.Reader) ([]Entry, error) {
 	}
 
 	entries := make([]Entry, len(astEntries))
+	renderer := render.NewTextRenderer()
 	for i, astEntry := range astEntries {
-		entry, err := renderEntryText(astEntry)
+		entry, err := renderEntryText(astEntry, renderer)
 		if err != nil {
 			return nil, fmt.Errorf("render bibtex entry as text: %w", err)
 		}

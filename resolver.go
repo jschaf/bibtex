@@ -5,6 +5,7 @@ package bibtex
 
 import (
 	"fmt"
+	"github.com/jschaf/bibtex/render"
 	gotok "go/token"
 	"strings"
 	"unicode"
@@ -16,63 +17,8 @@ import (
 
 const authorSep = "and"
 
-func exprText(x ast.Expr) string {
-	switch t := x.(type) {
-	case *ast.BadExpr:
-		return "<bad_expr>"
-	case *ast.Ident:
-		return "<unresolved ident '" + t.Name + "'>"
-	case *ast.Number:
-		return t.Value
-	case *ast.UnparsedText:
-		return t.Value
-	case *ast.ParsedText:
-		sb := strings.Builder{}
-		sb.Grow(16)
-		for _, v := range t.Values {
-			d := exprText(v)
-			sb.WriteString(d)
-		}
-		return sb.String()
-	case *ast.Text:
-		switch t.Kind {
-		case ast.TextComma:
-			return ","
-		case ast.TextContent:
-			return t.Value
-		case ast.TextEscaped:
-			return t.Value
-		case ast.TextHyphen:
-			return "-"
-		case ast.TextMath:
-			return "$" + t.Value + "$"
-		case ast.TextNBSP:
-			return " "
-		case ast.TextSpace:
-			return " "
-		default:
-			panic("unhandled ast.Text value: " + t.Value)
-		}
-	case *ast.ConcatExpr:
-		left := exprText(t.X)
-		right := exprText(t.Y)
-		return left + right
-	case *ast.MacroText:
-		// Skip the commands and only write the args.
-		sb := strings.Builder{}
-		sb.Grow(16)
-		for _, v := range t.Values {
-			d := exprText(v)
-			sb.WriteString(d)
-		}
-		return sb.String()
-	default:
-		panic("unhandled ast.Expr value")
-	}
-}
-
 // renderEntryText renders an ASTEntry into the plain text Entry.
-func renderEntryText(e ASTEntry) (Entry, error) {
+func renderEntryText(e ASTEntry, renderer *render.TextRenderer) (Entry, error) {
 	normE := Entry{
 		Key:  e.Key,
 		Type: e.Type,
@@ -98,7 +44,12 @@ func renderEntryText(e ASTEntry) (Entry, error) {
 				normE.Editor = editor
 			}
 		default:
-			normE.Tags[name] = exprText(tag)
+			sb := &strings.Builder{}
+			sb.Grow(16)
+			if err := renderer.Render(sb, tag); err != nil {
+				return Entry{}, fmt.Errorf("render entry tag %s: %w", name, err)
+			}
+			normE.Tags[name] = sb.String()
 		}
 	}
 	return normE, nil
