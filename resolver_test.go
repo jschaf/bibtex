@@ -1,6 +1,7 @@
 package bibtex
 
 import (
+	"github.com/jschaf/bibtex/asts"
 	gotok "go/token"
 	"testing"
 
@@ -71,27 +72,60 @@ func TestResolveAuthors_multiple(t *testing.T) {
 	}
 }
 
+type testASTEntry struct {
+	Type EntryType
+	Key  CiteKey
+	Tags map[Field]string
+}
+
+// cmpASTEntry is a functional option for cmp.Diff to normalize ASTEntry for
+// easier comparison
+func cmpASTEntry() cmp.Option {
+	return cmp.Transformer("cmpASTEntry", func(x ASTEntry) testASTEntry {
+		t := testASTEntry{
+			Type: x.Type,
+			Key:  x.Key,
+			Tags: make(map[Field]string, len(x.Tags)),
+		}
+		for field, tag := range x.Tags {
+			t.Tags[field] = asts.ExprString(tag)
+		}
+		return t
+	})
+}
+
 func TestResolveFile(t *testing.T) {
 	tests := []struct {
 		src  string
-		want []Entry
+		want []ASTEntry
 	}{
-		{"@article{key, author = {Foo Bar}}", []Entry{
-			{Type: EntryArticle, Key: "key",
-				Tags:   make(map[Field]string),
-				Author: []Author{newAuthor("Foo", "Bar")}},
+		{"@article{key, author = {Foo Bar}}", []ASTEntry{
+			{
+				Type: EntryArticle, Key: "key",
+				Tags: map[Field]ast.Expr{
+					"author": asts.BraceText(0, "Foo", asts.WSpace(), "Bar"),
+				},
+			},
 		}},
-		{"@article{abc, author = {Moir, Mark and Scherer,III, William N.}}", []Entry{
-			{Type: EntryArticle, Key: "abc",
-				Tags: make(map[Field]string),
-				Author: []Author{
-					newAuthor("Mark", "Moir"),
-					newAuthor("William N.", "", "Scherer", "III")}},
+		{"@article{abc, author = {Moir, Mark and Scherer,III, William N.}}", []ASTEntry{
+			{
+				Type: EntryArticle, Key: "abc",
+				Tags: map[Field]ast.Expr{
+					"author": asts.BraceText(0,
+						"Moir", asts.Comma(), asts.WSpace(), "Mark", asts.WSpace(), "and",
+						asts.WSpace(), "Scherer", asts.Comma(), "III", asts.Comma(), asts.WSpace(),
+						"William", asts.WSpace(), "N.",
+					),
+				},
+			},
 		}},
-		{"@article{ rfc1812, author = {F. {Baker, ed.}}}", []Entry{
-			{Type: EntryArticle, Key: "rfc1812",
-				Tags:   make(map[Field]string),
-				Author: []Author{newAuthor("F.", "Baker, ed.")}},
+		{"@article{ rfc1812, author = {F. {Baker, ed.}}}", []ASTEntry{
+			{
+				Type: EntryArticle, Key: "rfc1812",
+				Tags: map[Field]ast.Expr{
+					"author": asts.BraceText(0, "F.", asts.WSpace(), asts.BraceText(1, "Baker", asts.Comma(), asts.WSpace(), "ed.")),
+				},
+			},
 		}},
 	}
 
@@ -102,7 +136,7 @@ func TestResolveFile(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := cmp.Diff(tt.want, got, cmpASTEntry()); diff != "" {
 				t.Errorf("ResolveFile() mismatch (-want +got):\n%s", diff)
 			}
 		})

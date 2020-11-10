@@ -129,11 +129,10 @@ func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]ASTEn
 }
 
 // ResolveAuthors extracts the authors from the parsed text of a bibtex field,
-// usually the author or editor field.
+// usually from the author or editor field of bibtex entry.
 func ResolveAuthors(txt *ast.ParsedText) ([]Author, error) {
-	// Pop tokens until we get the author separator.
-	//   keep track of the number of commas at brace level 1.
-	//   hand off tokens to resolver
+	// Pop tokens until we get the author separator then hand off the tokens
+	// to resolveAuthor to get the Author.
 	authors := make([]Author, 0, 4)
 	aExprs := make([]ast.Expr, 0, 8)
 	for _, v := range txt.Values {
@@ -314,11 +313,12 @@ func resolveAuthor0(xs []ast.Expr) Author {
 	}
 }
 
-// resolveAuthorN resolves an author in the presense of 1 or more commas.
-// last, first
-// von last, first -> author(first, von, last)
-// last, suffix, first -> Author{ first, "", last, suffix }
-// von last, suffix, first -> Author{ first, von, last, suffix }
+// resolveAuthorN resolves an author entry that contains 1 or more commas.
+//
+//     1 comma:  last, first             => Author{first, "",  last, ""}
+//     1 comma:  von last, first         => Author(first, von, last, "")
+//     2 commas: last, suffix, first     => Author{first, "",  last, suffix}
+//     2 commas: von last, suffix, first => Author{first, von, last, suffix}
 func resolveAuthorN(xs []ast.Expr, commas []int) Author {
 	part1 := xs[:commas[0]]
 	idx1 := 0

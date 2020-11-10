@@ -77,13 +77,13 @@ const (
 type TextKind int
 
 const (
-	TextComma TextKind = iota
-	TextContent
-	TextEscaped // \$ or \{, backslash not stored
-	TextHyphen  // - regular hyphen, important for author names
-	TextMath    // $x=1$
-	TextNBSP    // ~, non-breaking TeX space
-	TextSpace   // any consecutive whitespace '\n', '\r', '\t', ' ' in a bibtex string
+	TextComma   TextKind = iota
+	TextContent          // regular text
+	TextEscaped          // \$ or \{, backslash not stored
+	TextHyphen           // - regular hyphen, important for author names
+	TextMath             // $x=1$
+	TextNBSP             // ~, non-breaking TeX space
+	TextSpace            // any consecutive whitespace '\n', '\r', '\t', ' ' in a bibtex string
 )
 
 func (t TextKind) String() string {
@@ -350,7 +350,7 @@ func (f *File) End() gotok.Pos {
 type Package struct {
 	Scope   *Scope             // package scope across all files
 	Objects map[string]*Object // map of package id -> package object
-	Files   map[string]*File   // Go source files by filename
+	Files   map[string]*File   // Bibtex source files by filename
 }
 
 func (p *Package) Pos() gotok.Pos { return gotok.NoPos }

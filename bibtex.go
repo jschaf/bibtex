@@ -103,16 +103,28 @@ type ASTEntry struct {
 // Entry is a Bibtex entry, like an @article{} entry, that provides the rendered
 // text of the entry.
 type Entry struct {
-	Type   EntryType
-	Key    CiteKey
+	Type EntryType
+	Key  CiteKey
+	// The parsed authors. The unparsed authors are available in
+	// Tags[FieldAuthor]. Use a top-level field so users don't need an explicit
+	// call to ResolveAuthors.
 	Author []Author
+	// The parsed editors. The unparsed editors are available in
+	// Tags[FieldEditor].
 	Editor []Author
 	Tags   map[Field]string
 }
 
+// Parse reads all bibtex entries with the AST for each tag in the entry
+// from the reader.
+func Parse(r io.Reader) ([]ASTEntry, error) {
+	entries, err := ResolveFile(gotok.NewFileSet(), "", r)
+	return entries, err
+}
+
 // Read reads all bibtex entries as plain text from the reader.
 func Read(r io.Reader) ([]Entry, error) {
-	astEntries, err := ReadAST(r)
+	astEntries, err := Parse(r)
 	if err != nil {
 		return nil, fmt.Errorf("read bibtex entries: %w", err)
 	}
@@ -126,11 +138,4 @@ func Read(r io.Reader) ([]Entry, error) {
 		entries[i] = entry
 	}
 	return entries, nil
-}
-
-// ReadAST reads all bibtex entries with the AST for each tag in the entry
-// from the reader.
-func ReadAST(r io.Reader) ([]ASTEntry, error) {
-	entries, err := ResolveFile(gotok.NewFileSet(), "", r)
-	return entries, err
 }

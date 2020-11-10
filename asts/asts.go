@@ -124,10 +124,6 @@ func Text(s string) *ast.Text {
 	return &ast.Text{Kind: ast.TextContent, Value: s}
 }
 
-func CmdText(name, arg string) *ast.MacroText {
-	return &ast.MacroText{Name: name, Values: []ast.Expr{Text(arg)}}
-}
-
 func WSpace() *ast.Text {
 	return &ast.Text{Kind: ast.TextSpace}
 }
