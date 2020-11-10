@@ -16,14 +16,62 @@ type Node interface {
 
 type NodeKind int
 
-var (
-	kindNames = make([]string, 0, 64)
+const (
+	KindTexComment NodeKind = iota
+	KindTexCommentGroup
+	KindBadExpr
+	KindIdent
+	KindNumber
+	KindAuthors
+	KindAuthor
+	KindUnparsedText
+	KindParsedText
+	KindText
+	KindTextComma
+	KindTextEscaped
+	KindTextHyphen
+	KindTextMath
+	KindTextNBSP
+	KindTextSpace
+	KindTextMacro
+	KindConcatExpr
+	KindBadStmt
+	KindTagStmt
+	KindBadDecl
+	KindAbbrevDecl
+	KindBibDecl
+	KindPreambleDecl
+	KindFile
+	KindPackage
 )
 
-// NewNodeKind returns a new Kind value.
-func newNodeKind(name string) NodeKind {
-	kindNames = append(kindNames, name)
-	return NodeKind(len(kindNames) - 1)
+var kindNames = [...]string{
+	KindTexComment:      "TexComment",
+	KindTexCommentGroup: "TexCommentGroup",
+	KindBadExpr:         "BadExpr",
+	KindIdent:           "Ident",
+	KindNumber:          "Number",
+	KindAuthors:         "Authors",
+	KindAuthor:          "Author",
+	KindUnparsedText:    "UnparsedText",
+	KindParsedText:      "ParsedText",
+	KindText:            "Text",
+	KindTextComma:       "TextComma",
+	KindTextEscaped:     "TextEscaped",
+	KindTextHyphen:      "TextHyphen",
+	KindTextMath:        "TextMath",
+	KindTextNBSP:        "TextNBSP",
+	KindTextSpace:       "TextSpace",
+	KindTextMacro:       "TextMacro",
+	KindConcatExpr:      "ConcatExpr",
+	KindBadStmt:         "BadStmt",
+	KindTagStmt:         "TagStmt",
+	KindBadDecl:         "BadDecl",
+	KindAbbrevDecl:      "AbbrevDecl",
+	KindBibDecl:         "BibDecl",
+	KindPreambleDecl:    "PreambleDecl",
+	KindFile:            "File",
+	KindPackage:         "Package",
 }
 
 func (k NodeKind) String() string {
@@ -60,7 +108,7 @@ type TexComment struct {
 
 func (c *TexComment) Pos() gotok.Pos { return c.Start }
 func (c *TexComment) End() gotok.Pos { return gotok.Pos(int(c.Start) + len(c.Text)) }
-func (c *TexComment) Kind() NodeKind { return newNodeKind("TexComment") }
+func (c *TexComment) Kind() NodeKind { return KindTexComment }
 
 // A TexCommentGroup represents a sequence of comments with no other tokens and
 // no empty lines between.
@@ -70,7 +118,7 @@ type TexCommentGroup struct {
 
 func (g *TexCommentGroup) Pos() gotok.Pos { return g.List[0].Pos() }
 func (g *TexCommentGroup) End() gotok.Pos { return g.List[len(g.List)-1].End() }
-func (g *TexCommentGroup) Kind() NodeKind { return newNodeKind("TexCommentGroup") }
+func (g *TexCommentGroup) Kind() NodeKind { return KindTexCommentGroup }
 
 // ----------------------------------------------------------------------------
 // Expressions
@@ -115,6 +163,21 @@ type (
 	Number struct {
 		ValuePos gotok.Pos
 		Value    string
+	}
+
+	// An Authors node represents a list of authors, typically in the author or
+	// editor fields of a bibtex declaration.
+	Authors struct {
+		authors []Author
+	}
+
+	// An Author node represents a single bibtex author.
+	Author struct {
+		From, To gotok.Pos
+		First    Expr // given name
+		Prefix   Expr // often called the 'von' part
+		Last     Expr // family name
+		Suffix   Expr // often called the 'jr' part
 	}
 
 	// An UnparsedText is a bibtex string as it appears in source. Only appears
@@ -201,22 +264,44 @@ type (
 
 func (x *BadExpr) Pos() gotok.Pos { return x.From }
 func (x *BadExpr) End() gotok.Pos { return x.To }
-func (x *BadExpr) Kind() NodeKind { return newNodeKind("BadExpr") }
+func (x *BadExpr) Kind() NodeKind { return KindBadExpr }
 func (*BadExpr) exprNode()        {}
 
 func (x *Ident) Pos() gotok.Pos { return x.NamePos }
 func (x *Ident) End() gotok.Pos { return gotok.Pos(int(x.NamePos) + len(x.Name)) }
-func (x *Ident) Kind() NodeKind { return newNodeKind("Ident") }
+func (x *Ident) Kind() NodeKind { return KindIdent }
 func (*Ident) exprNode()        {}
 
 func (x *Number) Pos() gotok.Pos { return x.ValuePos }
 func (x *Number) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
-func (x *Number) Kind() NodeKind { return newNodeKind("Number") }
+func (x *Number) Kind() NodeKind { return KindNumber }
 func (*Number) exprNode()        {}
+
+func (x *Authors) Pos() gotok.Pos {
+	if len(x.authors) == 0 {
+		return gotok.NoPos
+	} else {
+		return x.authors[0].From
+	}
+}
+func (x *Authors) End() gotok.Pos {
+	if len(x.authors) == 0 {
+		return gotok.NoPos
+	} else {
+		return x.authors[len(x.authors)-1].To
+	}
+}
+func (x *Authors) Kind() NodeKind { return KindAuthors }
+func (*Authors) exprNode()        {}
+
+func (x *Author) Pos() gotok.Pos { return x.From }
+func (x *Author) End() gotok.Pos { return x.To }
+func (x *Author) Kind() NodeKind { return KindAuthor }
+func (*Author) exprNode()        {}
 
 func (x *UnparsedText) Pos() gotok.Pos { return x.ValuePos }
 func (x *UnparsedText) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
-func (x *UnparsedText) Kind() NodeKind { return newNodeKind("UnparsedText") }
+func (x *UnparsedText) Kind() NodeKind { return KindUnparsedText }
 func (*UnparsedText) exprNode()        {}
 
 func (x *ParsedText) Pos() gotok.Pos { return x.Opener }
@@ -226,42 +311,42 @@ func (x *ParsedText) End() gotok.Pos {
 	}
 	return x.Opener
 }
-func (x *ParsedText) Kind() NodeKind { return newNodeKind("ParsedText") }
+func (x *ParsedText) Kind() NodeKind { return KindParsedText }
 func (*ParsedText) exprNode()        {}
 
 func (x *Text) Pos() gotok.Pos { return x.ValuePos }
 func (x *Text) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
-func (x *Text) Kind() NodeKind { return newNodeKind("Text") }
+func (x *Text) Kind() NodeKind { return KindText }
 func (*Text) exprNode()        {}
 
 func (x *TextComma) Pos() gotok.Pos { return x.ValuePos }
 func (x *TextComma) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(",")) }
-func (x *TextComma) Kind() NodeKind { return newNodeKind("TextComma") }
+func (x *TextComma) Kind() NodeKind { return KindTextComma }
 func (*TextComma) exprNode()        {}
 
 func (x *TextEscaped) Pos() gotok.Pos { return x.ValuePos }
 func (x *TextEscaped) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value) + len(`\`)) }
-func (x *TextEscaped) Kind() NodeKind { return newNodeKind("TextEscaped") }
+func (x *TextEscaped) Kind() NodeKind { return KindTextEscaped }
 func (*TextEscaped) exprNode()        {}
 
 func (x *TextHyphen) Pos() gotok.Pos { return x.ValuePos }
 func (x *TextHyphen) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len("-")) }
-func (x *TextHyphen) Kind() NodeKind { return newNodeKind("TextHyphen") }
+func (x *TextHyphen) Kind() NodeKind { return KindTextHyphen }
 func (*TextHyphen) exprNode()        {}
 
 func (x *TextMath) Pos() gotok.Pos { return x.ValuePos }
 func (x *TextMath) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + 2*len("$") + len(x.Value)) }
-func (x *TextMath) Kind() NodeKind { return newNodeKind("TextMath") }
+func (x *TextMath) Kind() NodeKind { return KindTextMath }
 func (*TextMath) exprNode()        {}
 
 func (x *TextNBSP) Pos() gotok.Pos { return x.ValuePos }
 func (x *TextNBSP) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len("~")) }
-func (x *TextNBSP) Kind() NodeKind { return newNodeKind("TextNBSP") }
+func (x *TextNBSP) Kind() NodeKind { return KindTextNBSP }
 func (*TextNBSP) exprNode()        {}
 
 func (x *TextSpace) Pos() gotok.Pos { return x.ValuePos }
 func (x *TextSpace) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
-func (x *TextSpace) Kind() NodeKind { return newNodeKind("TextSpace") }
+func (x *TextSpace) Kind() NodeKind { return KindTextSpace }
 func (*TextSpace) exprNode()        {}
 
 func (x *TextMacro) Pos() gotok.Pos { return x.Cmd }
@@ -274,12 +359,12 @@ func (x *TextMacro) End() gotok.Pos {
 	}
 	return x.Values[len(x.Values)-1].Pos()
 }
-func (x *TextMacro) Kind() NodeKind { return newNodeKind("TextMacro") }
+func (x *TextMacro) Kind() NodeKind { return KindTextMacro }
 func (*TextMacro) exprNode()        {}
 
 func (x *ConcatExpr) Pos() gotok.Pos { return x.X.Pos() }
 func (x *ConcatExpr) End() gotok.Pos { return x.Y.Pos() }
-func (x *ConcatExpr) Kind() NodeKind { return newNodeKind("ConcatExpr") }
+func (x *ConcatExpr) Kind() NodeKind { return KindConcatExpr }
 func (*ConcatExpr) exprNode()        {}
 
 // ----------------------------------------------------------------------------
@@ -307,12 +392,12 @@ type (
 
 func (x *BadStmt) Pos() gotok.Pos { return x.From }
 func (x *BadStmt) End() gotok.Pos { return x.To }
-func (x *BadStmt) Kind() NodeKind { return newNodeKind("BadStmt") }
+func (x *BadStmt) Kind() NodeKind { return KindBadStmt }
 func (*BadStmt) stmtNode()        {}
 
 func (x *TagStmt) Pos() gotok.Pos { return x.NamePos }
 func (x *TagStmt) End() gotok.Pos { return x.Value.Pos() }
-func (x *TagStmt) Kind() NodeKind { return newNodeKind("TagStmt") }
+func (x *TagStmt) Kind() NodeKind { return KindTagStmt }
 func (*TagStmt) stmtNode()        {}
 
 // ----------------------------------------------------------------------------
@@ -359,22 +444,22 @@ type (
 
 func (e *BadDecl) Pos() gotok.Pos { return e.From }
 func (e *BadDecl) End() gotok.Pos { return e.To }
-func (e *BadDecl) Kind() NodeKind { return newNodeKind("BadDecl") }
+func (e *BadDecl) Kind() NodeKind { return KindBadDecl }
 func (*BadDecl) declNode()        {}
 
 func (e *AbbrevDecl) Pos() gotok.Pos { return e.Entry }
 func (e *AbbrevDecl) End() gotok.Pos { return e.RBrace }
-func (e *AbbrevDecl) Kind() NodeKind { return newNodeKind("AbbrevDecl") }
+func (e *AbbrevDecl) Kind() NodeKind { return KindAbbrevDecl }
 func (*AbbrevDecl) declNode()        {}
 
 func (e *BibDecl) Pos() gotok.Pos { return e.Entry }
 func (e *BibDecl) End() gotok.Pos { return e.RBrace }
-func (e *BibDecl) Kind() NodeKind { return newNodeKind("BibDecl") }
+func (e *BibDecl) Kind() NodeKind { return KindBibDecl }
 func (*BibDecl) declNode()        {}
 
 func (e *PreambleDecl) Pos() gotok.Pos { return e.Entry }
 func (e *PreambleDecl) End() gotok.Pos { return e.RBrace }
-func (e *PreambleDecl) Kind() NodeKind { return newNodeKind("PreambleDecl") }
+func (e *PreambleDecl) Kind() NodeKind { return KindPreambleDecl }
 func (*PreambleDecl) declNode()        {}
 
 // ----------------------------------------------------------------------------
@@ -414,7 +499,7 @@ func (f *File) End() gotok.Pos {
 	}
 	return gotok.Pos(1)
 }
-func (f *File) Kind() NodeKind { return newNodeKind("File") }
+func (f *File) Kind() NodeKind { return KindFile }
 
 // A Package node represents a set of source files collectively representing
 // a single, unified bibliography.
@@ -426,4 +511,4 @@ type Package struct {
 
 func (p *Package) Pos() gotok.Pos { return gotok.NoPos }
 func (p *Package) End() gotok.Pos { return gotok.NoPos }
-func (p *Package) Kind() NodeKind { return newNodeKind("Package") }
+func (p *Package) Kind() NodeKind { return KindPackage }

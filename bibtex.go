@@ -93,15 +93,20 @@ func (a Author) IsOthers() bool {
 
 // Bibtex contains methods for parsing and rendering bibtex.
 type Bibtex struct {
-	usePresets   bool
-	parserMode   parser.Mode
-	exprRenderer render.ExprRenderer
+	usePresets bool
+	parserMode parser.Mode
+	resolvers  []Resolver
+	// Renderers for each node. The renderer for ast.Node n is contained at:
+	//     renderers[n.Kind()]
+	renderers []render.NodeRenderer
 }
 
+// Option is a functional option to change how Bibtex is parsed, resolved, and
+// rendered.
 type Option func(*Bibtex)
 
 // WithParserMode sets the parser options overwriting any previous parser
-// options. parser.Mode is a bitflag so use bit-or for multiple flags:
+// options. parser.Mode is a bitflag so use bit-or for multiple flags like so:
 //     WithParserMode(parser.ParserStrings|parser.Trace)
 func WithParserMode(mode parser.Mode) Option {
 	return func(b *Bibtex) {
@@ -109,9 +114,29 @@ func WithParserMode(mode parser.Mode) Option {
 	}
 }
 
+// WithResolvers appends the resolvers to the list of resolvers. Resolvers
+// run in the order given.
+func WithResolvers(rs ...Resolver) Option {
+	return func(b *Bibtex) {
+		for _, r := range rs {
+			b.resolvers = append(b.resolvers, r)
+		}
+	}
+}
+
+// WithRenderer sets the renderer for the node kind, replacing the previous
+// renderer.
+func WithRenderer(kind ast.NodeKind, r render.NodeRendererFunc) Option {
+	return func(b *Bibtex) {
+		b.renderers[kind] = r
+	}
+}
+
 func New(opts ...Option) *Bibtex {
 	b := &Bibtex{
+		// TODO: add mode to constant propagate abbrevs and concat expressions
 		parserMode: parser.ParseStrings,
+		renderers:  render.Defaults(),
 	}
 	for _, opt := range opts {
 		opt(b)
@@ -133,9 +158,13 @@ func (b *Bibtex) Parse(r io.Reader) (*ast.File, error) {
 // expressions, simplifying tag values by replacing TeX quote macros with
 // Unicode graphemes, and stripping Tex macros.
 //
-// The exact resolve steps are configurable via functional options passed to
-// bibtex.New.
+// The exact resolve steps are configurable using bibtex.WithResolvers.
 func (b *Bibtex) Resolve(node ast.Node) ([]Entry, error) {
+	for i, resolver := range b.resolvers {
+		if err := resolver.Resolve(node); err != nil {
+			return nil, fmt.Errorf("run resolvers[%d]: %w", i, err)
+		}
+	}
 	switch n := node.(type) {
 	case *ast.Package:
 		entries := make([]Entry, 0, len(n.Files)*4)
@@ -169,7 +198,7 @@ func (b *Bibtex) resolveEntry(decl *ast.BibDecl) Entry {
 	entry := Entry{
 		Key:  decl.Key.Name,
 		Type: decl.Type,
-		Tags: make(map[Field]ast.Expr),
+		Tags: make(map[Field]ast.Expr, 4),
 	}
 	for _, tag := range decl.Tags {
 		entry.Tags[tag.Name] = tag.Value
@@ -177,8 +206,8 @@ func (b *Bibtex) resolveEntry(decl *ast.BibDecl) Entry {
 	return entry
 }
 
-// ASTEntry is a Bibtex entry, like an @article{} entry, that provides AST for
-// each tag in the entry.
+// ASTEntry is a Bibtex entry, like an @article{} entry, that provides the AST
+// for each tag in the entry.
 type ASTEntry struct {
 	// The type of entry, i.e. the "article" in @article{foo}.
 	Type EntryType
@@ -202,30 +231,4 @@ type Entry struct {
 	Editor []Author
 	// All tags in the entry with the corresponding expression value.
 	Tags map[Field]ast.Expr
-}
-
-// Parse reads all bibtex entries with the AST for each tag in the entry
-// from the reader.
-func Parse(r io.Reader) ([]ASTEntry, error) {
-	entries, err := ResolveFile(gotok.NewFileSet(), "", r)
-	return entries, err
-}
-
-// Read reads all bibtex entries as plain text from the reader.
-func Read(r io.Reader) ([]Entry, error) {
-	astEntries, err := Parse(r)
-	if err != nil {
-		return nil, fmt.Errorf("read bibtex entries: %w", err)
-	}
-
-	entries := make([]Entry, len(astEntries))
-	renderer := render.NewTextRenderer()
-	for i, astEntry := range astEntries {
-		entry, err := renderEntryText(astEntry, renderer)
-		if err != nil {
-			return nil, fmt.Errorf("render bibtex entry as text: %w", err)
-		}
-		entries[i] = entry
-	}
-	return entries, nil
 }

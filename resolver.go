@@ -5,7 +5,6 @@ package bibtex
 
 import (
 	"fmt"
-	"github.com/jschaf/bibtex/render"
 	gotok "go/token"
 	"strings"
 	"unicode"
@@ -15,46 +14,42 @@ import (
 	"github.com/jschaf/bibtex/parser"
 )
 
-const authorSep = "and"
-
-// renderEntryText renders an ASTEntry into the plain text Entry.
-func renderEntryText(e ASTEntry, renderer *render.TextRenderer) (Entry, error) {
-	normE := Entry{
-		Key:  e.Key,
-		Type: e.Type,
-		Tags: make(map[Field]ast.Expr),
-	}
-	for name, tag := range e.Tags {
-		switch name {
-		case FieldAuthor:
-			if authors, ok := tag.(*ast.ParsedText); ok {
-				author, err := ResolveAuthors(authors)
-				if err != nil {
-					return Entry{}, fmt.Errorf("resolve authors in key %v: %w", name, err)
-				}
-				normE.Author = author
-			}
-
-		case FieldEditor:
-			if editors, ok := tag.(*ast.ParsedText); ok {
-				editor, err := ResolveAuthors(editors)
-				if err != nil {
-					return Entry{}, fmt.Errorf("resolve editors in key %v: %w", name, err)
-				}
-				normE.Editor = editor
-			}
-		default:
-			// TODO: fix me
-			// sb := &strings.Builder{}
-			// sb.Grow(16)
-			// if err := renderer.Render(sb, tag); err != nil {
-			// 	return Entry{}, fmt.Errorf("render entry tag %s: %w", name, err)
-			// }
-			// normE.Tags[name] = sb.String()
-		}
-	}
-	return normE, nil
+// Resolver is an in-place mutation of an ast.Node to support resolving Bibtex
+// entries. Typically, the mutations simplify the AST to support easier
+// manipulation, like replacing ast.EscapedText with the escaped value.
+type Resolver interface {
+	Resolve(n ast.Node) error
 }
+
+type ResolverFunc func(n ast.Node) error
+
+func (r ResolverFunc) Resolve(n ast.Node) error {
+	return r(n)
+}
+
+// SimplifyEscapedTextResolver replaces ast.TextEscaped nodes with a plain
+// ast.Text containing the value that was escaped. Meaning, `\&` is converted to
+// `&`.
+func SimplifyEscapedTextResolver(root ast.Node) error {
+	err := ast.Walk(root, func(n ast.Node, isEntering bool) (ast.WalkStatus, error) {
+		if txt, ok := n.(*ast.ParsedText); ok {
+			for i, val := range txt.Values {
+				if esc, ok := val.(*ast.TextEscaped); ok {
+					txt.Values[i] = &ast.Text{Value: esc.Value}
+				}
+			}
+		}
+		return ast.WalkContinue, nil
+	})
+	if err != nil {
+		return fmt.Errorf("simplify escaped text resolver: %w", err)
+	}
+	return nil
+}
+
+// TODO: Add AuthorResolver
+
+const authorSep = "and"
 
 func ResolveFile(fset *gotok.FileSet, filename string, src interface{}) ([]ASTEntry, error) {
 	f, err := parser.ParseFile(fset, filename, src, parser.ParseStrings)

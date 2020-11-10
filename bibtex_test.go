@@ -50,7 +50,12 @@ func TestRead(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			entries, err := Read(strings.NewReader(tt.src))
+			bib := New()
+			file, err := bib.Parse(strings.NewReader(tt.src))
+			if err != nil {
+				t.Fatal(err)
+			}
+			entries, err := bib.Resolve(file)
 			if err != nil {
 				t.Fatal(err)
 			}

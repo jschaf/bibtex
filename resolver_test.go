@@ -94,6 +94,14 @@ func cmpASTEntry() cmp.Option {
 	})
 }
 
+// cmpASTEntry is a functional option for cmp.Diff to normalize ASTEntry for
+// easier comparison
+func cmpASTExpr() cmp.Option {
+	return cmp.Transformer("cmpASTExpr", func(x ast.Expr) string {
+		return asts.ExprString(x)
+	})
+}
+
 func TestResolveFile(t *testing.T) {
 	tests := []struct {
 		src  string
@@ -138,6 +146,35 @@ func TestResolveFile(t *testing.T) {
 
 			if diff := cmp.Diff(tt.want, got, cmpASTEntry()); diff != "" {
 				t.Errorf("ResolveFile() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestSimplifyEscapedTextResolver(t *testing.T) {
+	tests := []struct {
+		node ast.Expr
+		want ast.Expr
+	}{
+		{
+			asts.BraceText(0, asts.Escaped('&')),
+			asts.BraceText(0, asts.Text("&")),
+		},
+		{
+			asts.BraceText(0, asts.BraceText(1, "abc", asts.Escaped('&'), "def")),
+			asts.BraceText(0, asts.BraceText(1, "abc", "&", "def")),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(asts.ExprString(tt.node), func(t *testing.T) {
+			if err := SimplifyEscapedTextResolver(tt.node); err != nil {
+				t.Fatal(err)
+			}
+			want := asts.ExprString(tt.want)
+			got := asts.ExprString(tt.node)
+			if diff := cmp.Diff(want, got); diff != "" {
+				t.Errorf("SimplifyEscapedTextResolver() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
