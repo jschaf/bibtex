@@ -41,9 +41,9 @@ func TestWalk(t *testing.T) {
 				Depth: 0,
 				Delim: BraceDelimiter,
 				Values: []Expr{
-					&Text{Kind: TextContent, Value: "first"},
+					&Text{Value: "first"},
 					&ParsedText{
-						Values: []Expr{&Text{Kind: TextContent, Value: "second"}},
+						Values: []Expr{&Text{Value: "second"}},
 					},
 				},
 			},
@@ -62,9 +62,9 @@ func TestWalk(t *testing.T) {
 				Depth: 0,
 				Delim: BraceDelimiter,
 				Values: []Expr{
-					&Text{Kind: TextContent, Value: "first"},
+					&Text{Value: "first"},
 					&ParsedText{
-						Values: []Expr{&Text{Kind: TextContent, Value: "second"}},
+						Values: []Expr{&Text{Value: "second"}},
 					},
 				},
 			},

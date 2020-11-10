@@ -69,7 +69,7 @@ func walkHelper(n Node, walker Walker) (WalkStatus, error) {
 			if st, err := walkHelper(t.Y, walker); st == WalkStop || err != nil {
 				return st, err
 			}
-		case *MacroText:
+		case *TextMacro:
 			for _, child := range t.Values {
 				if st, err := walkHelper(child, walker); st == WalkStop || err != nil {
 					return st, err

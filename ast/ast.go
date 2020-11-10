@@ -74,39 +74,6 @@ const (
 	BraceDelimiter
 )
 
-type TextKind int
-
-const (
-	TextComma   TextKind = iota
-	TextContent          // regular text
-	TextEscaped          // \$ or \{, backslash not stored
-	TextHyphen           // - regular hyphen, important for author names
-	TextMath             // $x=1$
-	TextNBSP             // ~, non-breaking TeX space
-	TextSpace            // any consecutive whitespace '\n', '\r', '\t', ' ' in a bibtex string
-)
-
-func (t TextKind) String() string {
-	switch t {
-	case TextComma:
-		return "TextComma"
-	case TextContent:
-		return "TextContent"
-	case TextEscaped:
-		return "TextEscaped"
-	case TextMath:
-		return "TextMath"
-	case TextNBSP:
-		return "TextNBSP"
-	case TextSpace:
-		return "TextSpace"
-	case TextHyphen:
-		return "TextHyphen"
-	default:
-		return "UnknownTextKind"
-	}
-}
-
 // An expression is represented by a tree consisting of one or more of the
 // following concrete expressions.
 type (
@@ -144,23 +111,63 @@ type (
 		Opener gotok.Pos // opening delimiter
 		Depth  int       // the brace depth
 		Delim  TextDelimiter
-		Values []Expr    // Text, ParsedText, or MacroText
+		Values []Expr    // Text, ParsedText, or any of the Text* types
 		Closer gotok.Pos // closing delimiter
 	}
 
-	// A Text node represents a piece of ParsedText.
+	// A Text node is a string of simple text.
 	Text struct {
 		ValuePos gotok.Pos // literal position
-		Kind     TextKind
 		Value    string
 	}
 
-	// A MacroText node represents a piece of ParsedText that's a latex macro
+	// A TextComma node is a string of exactly 1 comma. Useful because a comma has
+	// semantic meaning for parsing authors as a separator for names.
+	TextComma struct {
+		ValuePos gotok.Pos // literal position
+	}
+
+	// A TextEscaped node is a string of exactly 1 escaped character. The only
+	// escapable characters are:
+	//     '\\', '$', '&', '%', '{', '}'
+	// In all other cases, a backslash is interpreted as the start of a TeX macro.
+	TextEscaped struct {
+		ValuePos gotok.Pos // literal position
+		Value    string    // the escaped char without the backslash
+	}
+
+	// A TextHyphen node is a string of exactly 1 hyphen (-). Hyphens are
+	// important in some cases of parsing author names so keep it as a separate
+	// node.
+	TextHyphen struct {
+		ValuePos gotok.Pos // literal position
+	}
+
+	// A TextMath node is the string delimited by dollar signs, representing Math
+	// in TeX.
+	TextMath struct {
+		ValuePos gotok.Pos // literal position
+		Value    string    // the text in-between the $...$, not including the $'s.
+	}
+
+	// A TextNBSP node is a single non-breaking space, represented in TeX as '~'.
+	TextNBSP struct {
+		ValuePos gotok.Pos // literal position
+	}
+
+	// A TextSpace node is any consecutive whitespace '\n', '\r', '\t', ' ' in a
+	// bibtex string.
+	TextSpace struct {
+		ValuePos gotok.Pos // literal position
+		Value    string
+	}
+
+	// A TextMacro node represents a piece of ParsedText that's a latex macro
 	// invocation.
-	MacroText struct {
+	TextMacro struct {
 		Cmd    gotok.Pos // command position
 		Name   string    // command name without backslash, i.e. 'url'
-		Values []Expr    // parameters: Text, ParsedText, or MacroText
+		Values []Expr    // parameters: Text, ParsedText, or TextMacro
 		RBrace gotok.Pos // position of the closing }, if any
 	}
 
@@ -202,8 +209,32 @@ func (x *Text) Pos() gotok.Pos { return x.ValuePos }
 func (x *Text) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
 func (*Text) exprNode()        {}
 
-func (x *MacroText) Pos() gotok.Pos { return x.Cmd }
-func (x *MacroText) End() gotok.Pos {
+func (x *TextComma) Pos() gotok.Pos { return x.ValuePos }
+func (x *TextComma) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(",")) }
+func (*TextComma) exprNode()        {}
+
+func (x *TextEscaped) Pos() gotok.Pos { return x.ValuePos }
+func (x *TextEscaped) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value) + len(`\`)) }
+func (*TextEscaped) exprNode()        {}
+
+func (x *TextHyphen) Pos() gotok.Pos { return x.ValuePos }
+func (x *TextHyphen) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len("-")) }
+func (*TextHyphen) exprNode()        {}
+
+func (x *TextMath) Pos() gotok.Pos { return x.ValuePos }
+func (x *TextMath) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + 2*len("$") + len(x.Value)) }
+func (*TextMath) exprNode()        {}
+
+func (x *TextNBSP) Pos() gotok.Pos { return x.ValuePos }
+func (x *TextNBSP) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len("~")) }
+func (*TextNBSP) exprNode()        {}
+
+func (x *TextSpace) Pos() gotok.Pos { return x.ValuePos }
+func (x *TextSpace) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
+func (*TextSpace) exprNode()        {}
+
+func (x *TextMacro) Pos() gotok.Pos { return x.Cmd }
+func (x *TextMacro) End() gotok.Pos {
 	if x.RBrace != gotok.NoPos {
 		return x.RBrace
 	}
@@ -212,7 +243,7 @@ func (x *MacroText) End() gotok.Pos {
 	}
 	return x.Values[len(x.Values)-1].Pos()
 }
-func (*MacroText) exprNode() {}
+func (*TextMacro) exprNode() {}
 
 func (x *ConcatExpr) Pos() gotok.Pos { return x.X.Pos() }
 func (x *ConcatExpr) End() gotok.Pos { return x.Y.Pos() }

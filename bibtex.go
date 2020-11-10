@@ -93,10 +93,9 @@ func (a Author) IsOthers() bool {
 
 // Bibtex contains methods for parsing and rendering bibtex.
 type Bibtex struct {
-	usePresets          bool
-	parserMode          parser.Mode
-	textRenderOverrides map[ast.TextKind]render.TextRendererFunc
-	exprRenderer        render.ExprRenderer
+	usePresets   bool
+	parserMode   parser.Mode
+	exprRenderer render.ExprRenderer
 }
 
 type Option func(*Bibtex)
@@ -110,16 +109,9 @@ func WithParserMode(mode parser.Mode) Option {
 	}
 }
 
-func WithTextRenderer(kind ast.TextKind, r render.TextRendererFunc) Option {
-	return func(b *Bibtex) {
-		b.textRenderOverrides[kind] = r
-	}
-}
-
 func New(opts ...Option) *Bibtex {
 	b := &Bibtex{
-		parserMode:          parser.ParseStrings,
-		textRenderOverrides: make(map[ast.TextKind]render.TextRendererFunc),
+		parserMode: parser.ParseStrings,
 	}
 	for _, opt := range opts {
 		opt(b)
@@ -227,7 +219,7 @@ func Read(r io.Reader) ([]Entry, error) {
 	}
 
 	entries := make([]Entry, len(astEntries))
-	renderer := render.NewTextRenderer(map[ast.TextKind]render.TextRendererFunc{})
+	renderer := render.NewTextRenderer()
 	for i, astEntry := range astEntries {
 		entry, err := renderEntryText(astEntry, renderer)
 		if err != nil {

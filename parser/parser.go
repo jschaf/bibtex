@@ -396,7 +396,7 @@ func (p *parser) parseBasicLit() (l ast.Expr) {
 // parseMacroURL parses a TeX \url or \href macro. This is separate because
 // urls use common LaTeX characters like ~ for non-breaking spaces.
 func (p *parser) parseMacroURL(name string) ast.Expr {
-	urlCmd := &ast.MacroText{Cmd: p.pos, Name: name}
+	urlCmd := &ast.TextMacro{Cmd: p.pos, Name: name}
 	p.next()
 	p.expect(token.StringLBrace)
 	sb := strings.Builder{}
@@ -412,11 +412,7 @@ func (p *parser) parseMacroURL(name string) ast.Expr {
 		p.next()
 	}
 	urlCmd.Values = []ast.Expr{
-		&ast.Text{
-			ValuePos: p.pos,
-			Kind:     ast.TextContent,
-			Value:    sb.String(),
-		},
+		&ast.Text{ValuePos: p.pos, Value: sb.String()},
 	}
 	if p.tok == token.StringSpace {
 		p.next()
@@ -433,27 +429,27 @@ func (p *parser) parseMacroURL(name string) ast.Expr {
 func (p *parser) parseText(depth int) (txt ast.Expr) {
 	switch p.tok {
 	case token.StringMath:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextMath, Value: p.lit}
+		txt = &ast.TextMath{ValuePos: p.pos, Value: p.lit}
 	case token.StringHyphen:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextHyphen, Value: p.lit}
+		txt = &ast.TextHyphen{ValuePos: p.pos}
 	case token.StringNBSP:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextNBSP, Value: p.lit}
+		txt = &ast.TextNBSP{ValuePos: p.pos}
 	case token.StringContents:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextContent, Value: p.lit}
+		txt = &ast.Text{ValuePos: p.pos, Value: p.lit}
 	case token.StringSpace:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextSpace, Value: p.lit}
+		txt = &ast.TextSpace{ValuePos: p.pos, Value: p.lit}
 	case token.StringComma:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextComma, Value: p.lit}
+		txt = &ast.TextComma{ValuePos: p.pos}
 	case token.StringMacro:
 		switch p.lit {
 		case `url`, `href`:
 			// Special case common macros.
 			txt = p.parseMacroURL(p.lit)
 		default:
-			txt = &ast.MacroText{Cmd: p.pos, Name: p.lit}
+			txt = &ast.TextMacro{Cmd: p.pos, Name: p.lit}
 		}
 	case token.StringBackslash:
-		txt = &ast.Text{ValuePos: p.pos, Kind: ast.TextEscaped, Value: p.lit[1:]}
+		txt = &ast.TextEscaped{ValuePos: p.pos, Value: p.lit[1:]}
 	case token.Illegal:
 		txt = &ast.BadExpr{From: p.pos, To: p.pos}
 	case token.StringLBrace: // recursive case
@@ -661,11 +657,7 @@ func fixUpFields(tag string, val ast.Expr) ast.Expr {
 			Opener: txt.Opener,
 			Depth:  txt.Depth,
 			Delim:  txt.Delim,
-			Values: []ast.Expr{&ast.Text{
-				ValuePos: pos,
-				Kind:     ast.TextContent,
-				Value:    sb.String(),
-			}},
+			Values: []ast.Expr{&ast.Text{ValuePos: pos, Value: sb.String()}},
 			Closer: txt.Closer,
 		}
 	}

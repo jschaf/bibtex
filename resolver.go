@@ -90,7 +90,7 @@ func ResolveAuthors(txt *ast.ParsedText) ([]Author, error) {
 	for _, v := range txt.Values {
 		switch t := v.(type) {
 		case *ast.Text:
-			if t.Kind == ast.TextContent && t.Value == authorSep {
+			if t.Value == authorSep {
 				a := resolveAuthor(aExprs)
 				if (a == Author{}) {
 					return authors, fmt.Errorf("found an empty author")
@@ -114,14 +114,14 @@ func trimSpaces(xs []ast.Expr) []ast.Expr {
 	lo, hi := 0, len(xs)
 
 	for i := 0; i < len(xs); i++ {
-		if t, ok := xs[i].(*ast.Text); !ok || t.Kind != ast.TextSpace {
+		if _, ok := xs[i].(*ast.TextSpace); !ok {
 			break
 		}
 		lo++
 	}
 
 	for i := len(xs) - 1; i >= 0; i-- {
-		if t, ok := xs[i].(*ast.Text); !ok || t.Kind != ast.TextSpace {
+		if _, ok := xs[i].(*ast.TextSpace); !ok {
 			break
 		}
 		hi--
@@ -151,7 +151,7 @@ const (
 
 func parseFirstName(idx int, xs []ast.Expr) (string, resolveAction) {
 	x := xs[idx]
-	if t, ok := x.(*ast.Text); !ok || t.Kind != ast.TextContent {
+	if _, ok := x.(*ast.Text); !ok {
 		return parseDefault(idx, xs), resolveContinue
 	}
 
@@ -170,7 +170,7 @@ func hasUpperPrefix(s string) bool {
 
 func parsePrefixName(idx int, xs []ast.Expr) (string, resolveAction) {
 	x := xs[idx]
-	if t, ok := x.(*ast.Text); !ok || t.Kind != ast.TextContent {
+	if _, ok := x.(*ast.Text); !ok {
 		return parseDefault(idx, xs), resolveContinue
 	}
 
@@ -185,6 +185,7 @@ func parseLastName(idx int, xs []ast.Expr) (string, resolveAction) {
 	return parseDefault(idx, xs), resolveContinue
 }
 
+// TODO: replace with single resolver
 func parseDefault(idx int, xs []ast.Expr) string {
 	x := xs[idx]
 	switch t := x.(type) {
@@ -196,21 +197,18 @@ func parseDefault(idx int, xs []ast.Expr) string {
 			sb.WriteString(d)
 		}
 		return sb.String()
+	case *ast.TextComma:
+		return ","
+	case *ast.TextEscaped:
+		return `\` + t.Value
+	case *ast.TextHyphen:
+		return "-"
+	case *ast.TextNBSP, *ast.TextSpace:
+		return " "
+	case *ast.TextMath:
+		return "$" + t.Value + "$"
 	case *ast.Text:
-		switch t.Kind {
-		case ast.TextComma:
-			return ","
-		case ast.TextNBSP, ast.TextSpace:
-			return " "
-		case ast.TextContent:
-			return t.Value
-		case ast.TextHyphen:
-			return "-"
-		case ast.TextMath:
-			return "$" + t.Value + "$"
-		default:
-			panic("unhandled ast.Text value: " + t.Value)
-		}
+		return t.Value
 	default:
 		panic("unhandled ast.Expr value")
 	}
@@ -331,7 +329,7 @@ func resolveAuthorN(xs []ast.Expr, commas []int) Author {
 func findCommas(xs []ast.Expr) []int {
 	idxs := make([]int, 0, 2)
 	for i, x := range xs {
-		if t, ok := x.(*ast.Text); ok && t.Kind == ast.TextComma {
+		if _, ok := x.(*ast.TextComma); ok {
 			idxs = append(idxs, i)
 		}
 	}

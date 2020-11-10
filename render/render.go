@@ -17,15 +17,12 @@ func (t TextRendererFunc) Render(w io.Writer, x ast.Expr) error {
 }
 
 type TextRenderer struct {
-	textOverrides map[ast.TextKind]TextRendererFunc
 }
 
 type Option func(p *TextRenderer)
 
-func NewTextRenderer(textOverrides map[ast.TextKind]TextRendererFunc) *TextRenderer {
-	return &TextRenderer{
-		textOverrides: textOverrides,
-	}
+func NewTextRenderer() *TextRenderer {
+	return &TextRenderer{}
 }
 
 func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
@@ -44,57 +41,33 @@ func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
 		if mErr = p.Render(w, t.Y); mErr != nil {
 			return
 		}
-	case *ast.MacroText:
+	case *ast.TextMacro:
 		for _, v := range t.Values {
 			if mErr = p.Render(w, v); mErr != nil {
 				return
 			}
 		}
+		// TODO: add overrides and TextMacro
+	case *ast.TextComma:
+		_, mErr = w.Write([]byte(","))
 	case *ast.Text:
-		switch t.Kind {
-		case ast.TextComma:
-			if r, ok := p.textOverrides[ast.TextComma]; ok {
-				mErr = r.Render(w, t)
-			} else {
-				_, mErr = w.Write([]byte(","))
-			}
-		case ast.TextContent:
-			if r, ok := p.textOverrides[ast.TextContent]; ok {
-				mErr = r.Render(w, t)
-			} else {
-				_, mErr = w.Write([]byte(t.Value))
-			}
-		case ast.TextEscaped:
-			if r, ok := p.textOverrides[ast.TextEscaped]; ok {
-				mErr = r.Render(w, t)
-			} else {
-				_, mErr = w.Write([]byte(t.Value))
-			}
-		case ast.TextHyphen:
-			if r, ok := p.textOverrides[ast.TextHyphen]; ok {
-				mErr = r.Render(w, t)
-			} else {
-				_, mErr = w.Write([]byte("-"))
-			}
-		case ast.TextMath:
-			if r, ok := p.textOverrides[ast.TextMath]; ok {
-				mErr = r.Render(w, t)
-			} else {
-				if _, mErr = w.Write([]byte("$")); mErr != nil {
-					return mErr
-				}
-				if _, mErr = w.Write([]byte(t.Value)); mErr != nil {
-					return mErr
-				}
-				if _, mErr = w.Write([]byte("$")); mErr != nil {
-					return mErr
-				}
-			}
-		case ast.TextNBSP, ast.TextSpace:
-			_, mErr = w.Write([]byte(" "))
-		default:
-			return fmt.Errorf("renderer - unhandled ast.Text value: %s", t.Value)
+		_, mErr = w.Write([]byte(t.Value))
+	case *ast.TextEscaped:
+		_, mErr = w.Write([]byte(t.Value))
+	case *ast.TextHyphen:
+		_, mErr = w.Write([]byte("-"))
+	case *ast.TextMath:
+		if _, mErr = w.Write([]byte("$")); mErr != nil {
+			return mErr
 		}
+		if _, mErr = w.Write([]byte(t.Value)); mErr != nil {
+			return mErr
+		}
+		if _, mErr = w.Write([]byte("$")); mErr != nil {
+			return mErr
+		}
+	case *ast.TextNBSP, *ast.TextSpace:
+		_, mErr = w.Write([]byte(" "))
 	default:
 		return fmt.Errorf("renderer - unhandled ast.Expr type %T, %v", t, t)
 	}

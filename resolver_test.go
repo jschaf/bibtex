@@ -103,7 +103,7 @@ func TestResolveFile(t *testing.T) {
 			{
 				Type: EntryArticle, Key: "key",
 				Tags: map[Field]ast.Expr{
-					"author": asts.BraceText(0, "Foo", asts.WSpace(), "Bar"),
+					"author": asts.BraceText(0, "Foo", asts.Space(), "Bar"),
 				},
 			},
 		}},
@@ -112,9 +112,9 @@ func TestResolveFile(t *testing.T) {
 				Type: EntryArticle, Key: "abc",
 				Tags: map[Field]ast.Expr{
 					"author": asts.BraceText(0,
-						"Moir", asts.Comma(), asts.WSpace(), "Mark", asts.WSpace(), "and",
-						asts.WSpace(), "Scherer", asts.Comma(), "III", asts.Comma(), asts.WSpace(),
-						"William", asts.WSpace(), "N.",
+						"Moir", asts.Comma(), asts.Space(), "Mark", asts.Space(), "and",
+						asts.Space(), "Scherer", asts.Comma(), "III", asts.Comma(), asts.Space(),
+						"William", asts.Space(), "N.",
 					),
 				},
 			},
@@ -123,7 +123,7 @@ func TestResolveFile(t *testing.T) {
 			{
 				Type: EntryArticle, Key: "rfc1812",
 				Tags: map[Field]ast.Expr{
-					"author": asts.BraceText(0, "F.", asts.WSpace(), asts.BraceText(1, "Baker", asts.Comma(), asts.WSpace(), "ed.")),
+					"author": asts.BraceText(0, "F.", asts.Space(), asts.BraceText(1, "Baker", asts.Comma(), asts.Space(), "ed.")),
 				},
 			},
 		}},

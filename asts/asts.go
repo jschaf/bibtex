@@ -64,7 +64,7 @@ func ParseAny(s interface{}) ast.Expr {
 func ParseStringExpr(depth int, s string) ast.Expr {
 	switch {
 	case strings.TrimSpace(s) == "":
-		return WSpace()
+		return Space()
 	case strings.HasPrefix(s, "$") && strings.HasSuffix(s, "$"):
 		bs := []byte(s)
 		return Math(string(bs[1 : len(bs)-1]))
@@ -81,7 +81,7 @@ func ParseStringExpr(depth int, s string) ast.Expr {
 			xs[idx] = innerExpr
 			idx++
 			if i < len(split)-1 {
-				xs[idx] = WSpace()
+				xs[idx] = Space()
 				idx++
 			}
 		}
@@ -121,38 +121,35 @@ func QuotedText(depth int, ss ...string) *ast.ParsedText {
 }
 
 func Text(s string) *ast.Text {
-	return &ast.Text{Kind: ast.TextContent, Value: s}
+	return &ast.Text{Value: s}
 }
 
-func WSpace() *ast.Text {
-	return &ast.Text{Kind: ast.TextSpace}
+func Space() *ast.TextSpace {
+	return &ast.TextSpace{Value: " "}
 }
 
-func NBSP() *ast.Text {
-	return &ast.Text{Kind: ast.TextNBSP}
+func NBSP() *ast.TextNBSP {
+	return &ast.TextNBSP{}
 }
 
-func Math(x string) *ast.Text {
-	return &ast.Text{Kind: ast.TextMath, Value: x}
+func Math(x string) *ast.TextMath {
+	return &ast.TextMath{Value: x}
 }
 
-func Comma() *ast.Text {
-	return &ast.Text{Kind: ast.TextComma}
+func Comma() *ast.TextComma {
+	return &ast.TextComma{}
 }
 
-func Macro(name string, params ...interface{}) *ast.MacroText {
+func Macro(name string, params ...interface{}) *ast.TextMacro {
 	vals := make([]ast.Expr, len(params))
 	for i, param := range params {
 		vals[i] = ParseAny(param)
 	}
-	return &ast.MacroText{Name: name, Values: vals}
+	return &ast.TextMacro{Name: name, Values: vals}
 }
 
-func Escaped(c rune) *ast.Text {
-	return &ast.Text{
-		Kind:  ast.TextEscaped,
-		Value: string(c),
-	}
+func Escaped(c rune) *ast.TextEscaped {
+	return &ast.TextEscaped{Value: string(c)}
 }
 
 func UnparsedText(s string) ast.Expr {
@@ -185,23 +182,20 @@ func ExprString(x ast.Expr) string {
 		} else {
 			return "UnparsedText({" + v.Value + "})"
 		}
+	case *ast.TextSpace:
+		return "<space>"
+	case *ast.TextNBSP:
+		return "<NBSP>"
+	case *ast.TextHyphen:
+		return "<hyphen>"
+	case *ast.TextComma:
+		return "<comma>"
+	case *ast.TextMath:
+		return "$" + v.Value + "$"
+	case *ast.TextEscaped:
+		return `\` + v.Value
 	case *ast.Text:
-		switch v.Kind {
-		case ast.TextSpace:
-			return "<space>"
-		case ast.TextNBSP:
-			return "<NBSP>"
-		case ast.TextHyphen:
-			return "<hyphen>"
-		case ast.TextComma:
-			return "<comma>"
-		case ast.TextMath:
-			return "$" + v.Value + "$"
-		case ast.TextContent:
-			return fmt.Sprintf("%q", v.Value)
-		default:
-			return "Text[" + v.Kind.String() + "](" + v.Value + ")"
-		}
+		return fmt.Sprintf("%q", v.Value)
 
 	case *ast.ParsedText:
 		sb := strings.Builder{}
@@ -222,9 +216,9 @@ func ExprString(x ast.Expr) string {
 	case *ast.ConcatExpr:
 		return ExprString(v.X) + " # " + ExprString(v.Y)
 
-	case *ast.MacroText:
+	case *ast.TextMacro:
 		sb := strings.Builder{}
-		sb.WriteString("MacroText(")
+		sb.WriteString("TextMacro(")
 		sb.WriteByte('\\')
 		sb.WriteString(v.Name)
 		if len(v.Values) == 0 {
