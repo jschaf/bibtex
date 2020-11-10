@@ -152,7 +152,7 @@ type (
 	Text struct {
 		ValuePos gotok.Pos // literal position
 		Kind     TextKind
-		Value    string // excludes delimiters for TextMath
+		Value    string
 	}
 
 	// A MacroText node represents a piece of ParsedText that's a latex macro

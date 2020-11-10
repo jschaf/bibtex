@@ -16,14 +16,16 @@ func TestTextRenderer_Render(t *testing.T) {
 		renderer *TextRenderer
 		want     string
 	}{
-		{"simple", asts.BraceText(0, "foo"), NewTextRenderer(), "foo"},
-		{"nested", asts.BraceText(0, "{foo}"), NewTextRenderer(), "foo"},
+		{"simple", asts.BraceText(0, "foo"), NewTextRenderer(map[ast.TextKind]TextRendererFunc{}), "foo"},
+		{"nested", asts.BraceText(0, "{foo}"), NewTextRenderer(map[ast.TextKind]TextRendererFunc{}), "foo"},
 		{"text override",
 			asts.BraceText(0, "{foo}"),
-			NewTextRenderer(WithTextOverride(ast.TextContent, func(w io.Writer, t *ast.Text) error {
-				_, _ = w.Write([]byte("bar"))
-				return nil
-			})),
+			NewTextRenderer(map[ast.TextKind]TextRendererFunc{
+				ast.TextContent: func(w io.Writer, t *ast.Text) error {
+					_, _ = w.Write([]byte("bar"))
+					return nil
+				},
+			}),
 			"bar"},
 	}
 	for _, tt := range tests {

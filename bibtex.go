@@ -3,6 +3,7 @@ package bibtex
 import (
 	"fmt"
 	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/parser"
 	"github.com/jschaf/bibtex/render"
 	gotok "go/token"
 	"io"
@@ -90,6 +91,59 @@ func (a Author) IsOthers() bool {
 	return a.First == "" && a.Prefix == "" && a.Last == "others" && a.Suffix == ""
 }
 
+// Bibtex contains methods for parsing and rendering bibtex.
+type Bibtex struct {
+	textRenderOverrides map[ast.TextKind]render.TextRendererFunc
+	exprRenderer        render.ExprRenderer
+}
+
+type Option func(*Bibtex)
+
+func WithTextRenderer(kind ast.TextKind, r render.TextRendererFunc) Option {
+	return func(b *Bibtex) {
+		b.textRenderOverrides[kind] = r
+	}
+}
+
+func New(opts ...Option) *Bibtex {
+	b := &Bibtex{
+		textRenderOverrides: make(map[ast.TextKind]render.TextRendererFunc),
+	}
+	for _, opt := range opts {
+		opt(b)
+	}
+	b.exprRenderer = render.NewTextRenderer(b.textRenderOverrides)
+	return b
+}
+
+func (b *Bibtex) Parse(r io.Reader) (*ast.File, error) {
+	f, err := parser.ParseFile(gotok.NewFileSet(), "", r, parser.ParseStrings)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func (b *Bibtex) ResolveFile(f *ast.File) ([]Entry, error) {
+	entries := make([]Entry, 0, len(f.Entries))
+	for _, rawE := range f.Entries {
+		if _, ok := rawE.(*ast.BibDecl); !ok {
+			continue
+		}
+		bibDecl := rawE.(*ast.BibDecl)
+		normE := Entry{
+			Key:  bibDecl.Key.Name,
+			Type: bibDecl.Type,
+			Tags: make(map[Field]ast.Expr),
+		}
+		for _, tag := range bibDecl.Tags {
+			normE.Tags[tag.Name] = tag.Value
+		}
+		entries = append(entries, normE)
+	}
+	return entries, nil
+}
+
 // ASTEntry is a Bibtex entry, like an @article{} entry, that provides AST for
 // each tag in the entry.
 type ASTEntry struct {
@@ -113,7 +167,8 @@ type Entry struct {
 	// The parsed editors. The unparsed editors are available in
 	// Tags[FieldEditor].
 	Editor []Author
-	Tags   map[Field]string
+	// All tags in the entry with the corresponding expression value.
+	Tags map[Field]ast.Expr
 }
 
 // Parse reads all bibtex entries with the AST for each tag in the entry

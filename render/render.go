@@ -22,20 +22,10 @@ type TextRenderer struct {
 
 type Option func(p *TextRenderer)
 
-func WithTextOverride(kind ast.TextKind, r TextRendererFunc) Option {
-	return func(p *TextRenderer) {
-		p.textOverrides[kind] = r
+func NewTextRenderer(textOverrides map[ast.TextKind]TextRendererFunc) *TextRenderer {
+	return &TextRenderer{
+		textOverrides: textOverrides,
 	}
-}
-
-func NewTextRenderer(opts ...Option) *TextRenderer {
-	p := &TextRenderer{
-		textOverrides: make(map[ast.TextKind]TextRendererFunc),
-	}
-	for _, opt := range opts {
-		opt(p)
-	}
-	return p
 }
 
 func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
