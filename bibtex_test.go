@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestRead(t *testing.T) {
+func TestNew_resolve(t *testing.T) {
 	tests := []struct {
 		src  string
 		want Entry
@@ -24,14 +24,14 @@ func TestRead(t *testing.T) {
 			  }
 	  `,
 			Entry{
-				Type:   EntryInProceedings,
-				Key:    "canonne2020learning",
-				Author: []Author{newAuthor("Clement L", "Canonne"), newAuthor("Anindya", "De"), newAuthor("Rocco A", "Servedio")},
+				Type: EntryInProceedings,
+				Key:  "canonne2020learning",
 				Tags: map[Field]ast.Expr{
 					"booktitle":    asts.Text("Proceedings of the Fourteenth Annual ACM-SIAM Symposium on Discrete Algorithms"),
 					"organization": asts.Text("SIAM"),
 					"pages":        asts.Text("82--101"),
 					"title":        asts.Text("Learning from satisfying assignments under continuous distributions"),
+					"author":       newAuthors(newAuthor("Clement L", "Canonne"), newAuthor("Anindya", "De"), newAuthor("Rocco A", "Servedio")),
 					"year":         asts.Text("2020"),
 				}},
 		},
@@ -47,10 +47,19 @@ func TestRead(t *testing.T) {
 			`@book{citekey, url={\url{www.example.com}} }`,
 			Entry{Type: EntryBook, Key: "citekey", Tags: map[Field]ast.Expr{"url": asts.Text("www.example.com")}},
 		},
+		{
+			`@article{cite_key, url = "http://example.com/foo--bar/~baz/#" }`,
+			Entry{Type: EntryArticle, Key: "cite_key", Tags: map[Field]ast.Expr{"url": asts.Text("http://example.com/foo--bar/~baz/#")}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
-			bib := New()
+			bib := New(
+				WithResolvers(
+					NewAuthorResolver("author"),
+					ResolverFunc(SimplifyEscapedTextResolver),
+					NewRenderParsedTextResolver(),
+				))
 			file, err := bib.Parse(strings.NewReader(tt.src))
 			if err != nil {
 				t.Fatal(err)

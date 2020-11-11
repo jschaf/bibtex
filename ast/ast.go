@@ -167,9 +167,7 @@ type (
 
 	// An Authors node represents a list of authors, typically in the author or
 	// editor fields of a bibtex declaration.
-	Authors struct {
-		authors []Author
-	}
+	Authors []*Author
 
 	// An Author node represents a single bibtex author.
 	Author struct {
@@ -277,27 +275,60 @@ func (x *Number) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Valu
 func (x *Number) Kind() NodeKind { return KindNumber }
 func (*Number) exprNode()        {}
 
-func (x *Authors) Pos() gotok.Pos {
-	if len(x.authors) == 0 {
+func (x Authors) Pos() gotok.Pos {
+	if len(x) == 0 {
 		return gotok.NoPos
 	} else {
-		return x.authors[0].From
+		return x[0].From
 	}
 }
-func (x *Authors) End() gotok.Pos {
-	if len(x.authors) == 0 {
+func (x Authors) End() gotok.Pos {
+	if len(x) == 0 {
 		return gotok.NoPos
 	} else {
-		return x.authors[len(x.authors)-1].To
+		return x[len(x)-1].To
 	}
 }
-func (x *Authors) Kind() NodeKind { return KindAuthors }
-func (*Authors) exprNode()        {}
+func (x Authors) Kind() NodeKind { return KindAuthors }
+func (Authors) exprNode()        {}
 
 func (x *Author) Pos() gotok.Pos { return x.From }
 func (x *Author) End() gotok.Pos { return x.To }
 func (x *Author) Kind() NodeKind { return KindAuthor }
-func (*Author) exprNode()        {}
+func (x *Author) IsEmpty() bool {
+	if s, ok := x.First.(*Text); !ok || s.Value != "" {
+		return false
+	}
+	if s, ok := x.Prefix.(*Text); !ok || s.Value != "" {
+		return false
+	}
+	if s, ok := x.Last.(*Text); !ok || s.Value != "" {
+		return false
+	}
+	if s, ok := x.Suffix.(*Text); !ok || s.Value != "" {
+		return false
+	}
+	return true
+}
+
+// IsOthers returns true if this author was created from the "and others"
+// suffix in from authors field.
+func (x *Author) IsOthers() bool {
+	if s, ok := x.First.(*Text); !ok || s.Value != "" {
+		return false
+	}
+	if s, ok := x.Prefix.(*Text); !ok || s.Value != "" {
+		return false
+	}
+	if s, ok := x.Last.(*Text); !ok || s.Value != "others" {
+		return false
+	}
+	if s, ok := x.Suffix.(*Text); !ok || s.Value != "" {
+		return false
+	}
+	return true
+}
+func (x *Author) exprNode() {}
 
 func (x *UnparsedText) Pos() gotok.Pos { return x.ValuePos }
 func (x *UnparsedText) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }

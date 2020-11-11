@@ -64,33 +64,6 @@ const (
 	FieldYear         Field = "year"
 )
 
-// Author represents a person who contributed to an entry.
-//
-// Bibtex recognizes four structures for authors:
-// 1. First von Last - no commas
-// 2. First Last - no commas and no lowercase strings
-// 3. von Last, First - single comma
-// 4. von Last, Jr ,First - two commas
-//
-// This library treats "and others" as a special type of author recognized by
-// the IsOthers() function.
-//
-// Other parsing libraries:
-// - https://metacpan.org/pod/distribution/Text-BibTeX/btparse/doc/bt_split_names.pod
-// - https://nzhagen.github.io/bibulous/developer_guide.html#name-formatting
-type Author struct {
-	First  string // given name
-	Prefix string // often called the 'von' part
-	Last   string // family name
-	Suffix string // often called the 'jr' part
-}
-
-// IsOthers returns true if this author was created from the "and others"
-// suffix in from authors field.
-func (a Author) IsOthers() bool {
-	return a.First == "" && a.Prefix == "" && a.Last == "others" && a.Suffix == ""
-}
-
 // Bibtex contains methods for parsing and rendering bibtex.
 type Bibtex struct {
 	usePresets bool
@@ -206,29 +179,11 @@ func (b *Bibtex) resolveEntry(decl *ast.BibDecl) Entry {
 	return entry
 }
 
-// ASTEntry is a Bibtex entry, like an @article{} entry, that provides the AST
-// for each tag in the entry.
-type ASTEntry struct {
-	// The type of entry, i.e. the "article" in @article{foo}.
-	Type EntryType
-	// The cite key of the entry, i.e. the "foo" in @article{foo, title = "bar"}.
-	Key CiteKey
-	// Map of the lowercase tag name to the expression for the tag.
-	Tags map[Field]ast.Expr
-}
-
 // Entry is a Bibtex entry, like an @article{} entry, that provides the rendered
 // plain text of the entry.
 type Entry struct {
 	Type EntryType
 	Key  CiteKey
-	// The parsed authors. The unparsed authors are available in
-	// Tags[FieldAuthor]. Use a top-level field so users don't need an explicit
-	// call to ResolveAuthors.
-	Author []Author
-	// The parsed editors. The unparsed editors are available in
-	// Tags[FieldEditor].
-	Editor []Author
 	// All tags in the entry with the corresponding expression value.
 	Tags map[Field]ast.Expr
 }

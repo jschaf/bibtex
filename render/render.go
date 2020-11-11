@@ -184,6 +184,12 @@ func NewTextRenderer() *TextRenderer {
 
 func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
 	switch t := x.(type) {
+	case *ast.ParsedText:
+		for _, v := range t.Values {
+			if err := p.Render(w, v); err != nil {
+				return err
+			}
+		}
 	case *ast.ConcatExpr:
 		if mErr = p.Render(w, t.X); mErr != nil {
 			return
