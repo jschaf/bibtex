@@ -302,7 +302,7 @@ func (s *Scanner) scanStringMath() (token.Token, string) {
 func (s *Scanner) scanStringEscape() (token.Token, string) {
 	offs := s.offset - 1 // initial backslash already consumed
 	switch s.ch {
-	case '\\', '$', '&', '%', '{', '}':
+	case '\\', '$', '&', '%', '{', '}', '_':
 		// a single non-alphabetical character
 		s.next()
 		return token.StringBackslash, string(s.src[offs:s.offset])

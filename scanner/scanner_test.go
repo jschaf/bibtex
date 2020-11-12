@@ -247,7 +247,7 @@ func tok(s string) stringTok {
 	}
 
 	switch s {
-	case `\\`, `\$`, `\&`, `\%`, `\{`, `\}`:
+	case `\\`, `\$`, `\&`, `\%`, `\{`, `\}`, `\_`:
 		return stringTok{t: token.StringBackslash, lit: s, raw: s}
 	case `\,`, `\;`, `\[`, `\]`, `\(`, `\)`:
 		return stringTok{t: token.StringMacro, lit: s, raw: s}
@@ -320,6 +320,7 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 		{`={\}}`, toks("=", `{`, `\}`, `}`), nil},
 		{`="\%"`, toks("=", `"`, `\%`, `"`), nil},
 		{`={\%}`, toks("=", `{`, `\%`, `}`), nil},
+		{`={\_}`, toks("=", `{`, `\_`, `}`), nil},
 		// Whitespace
 		{"\"a\nb\"", toks(`"`, "a", "\n", "b", `"`), nil},
 		{"\"a \n \r \t b\"", toks(`"`, "a", " \n \r \t ", "b", `"`), nil},

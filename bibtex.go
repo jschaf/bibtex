@@ -64,8 +64,8 @@ const (
 	FieldYear         Field = "year"
 )
 
-// Bibtex contains methods for parsing and rendering bibtex.
-type Bibtex struct {
+// Bibtex contains methods for parsing, resolving, and rendering bibtex.
+type Biber struct {
 	usePresets bool
 	parserMode parser.Mode
 	resolvers  []Resolver
@@ -76,13 +76,13 @@ type Bibtex struct {
 
 // Option is a functional option to change how Bibtex is parsed, resolved, and
 // rendered.
-type Option func(*Bibtex)
+type Option func(*Biber)
 
 // WithParserMode sets the parser options overwriting any previous parser
 // options. parser.Mode is a bitflag so use bit-or for multiple flags like so:
 //     WithParserMode(parser.ParserStrings|parser.Trace)
 func WithParserMode(mode parser.Mode) Option {
-	return func(b *Bibtex) {
+	return func(b *Biber) {
 		b.parserMode = mode
 	}
 }
@@ -90,7 +90,7 @@ func WithParserMode(mode parser.Mode) Option {
 // WithResolvers appends the resolvers to the list of resolvers. Resolvers
 // run in the order given.
 func WithResolvers(rs ...Resolver) Option {
-	return func(b *Bibtex) {
+	return func(b *Biber) {
 		for _, r := range rs {
 			b.resolvers = append(b.resolvers, r)
 		}
@@ -100,13 +100,13 @@ func WithResolvers(rs ...Resolver) Option {
 // WithRenderer sets the renderer for the node kind, replacing the previous
 // renderer.
 func WithRenderer(kind ast.NodeKind, r render.NodeRendererFunc) Option {
-	return func(b *Bibtex) {
+	return func(b *Biber) {
 		b.renderers[kind] = r
 	}
 }
 
-func New(opts ...Option) *Bibtex {
-	b := &Bibtex{
+func New(opts ...Option) *Biber {
+	b := &Biber{
 		// TODO: add mode to constant propagate abbrevs and concat expressions
 		parserMode: parser.ParseStrings,
 		renderers:  render.Defaults(),
@@ -117,7 +117,7 @@ func New(opts ...Option) *Bibtex {
 	return b
 }
 
-func (b *Bibtex) Parse(r io.Reader) (*ast.File, error) {
+func (b *Biber) Parse(r io.Reader) (*ast.File, error) {
 	f, err := parser.ParseFile(gotok.NewFileSet(), "", r, b.parserMode)
 	if err != nil {
 		return nil, err
@@ -132,7 +132,7 @@ func (b *Bibtex) Parse(r io.Reader) (*ast.File, error) {
 // Unicode graphemes, and stripping Tex macros.
 //
 // The exact resolve steps are configurable using bibtex.WithResolvers.
-func (b *Bibtex) Resolve(node ast.Node) ([]Entry, error) {
+func (b *Biber) Resolve(node ast.Node) ([]Entry, error) {
 	for i, resolver := range b.resolvers {
 		if err := resolver.Resolve(node); err != nil {
 			return nil, fmt.Errorf("run resolvers[%d]: %w", i, err)
@@ -167,7 +167,7 @@ func (b *Bibtex) Resolve(node ast.Node) ([]Entry, error) {
 	}
 }
 
-func (b *Bibtex) resolveEntry(decl *ast.BibDecl) Entry {
+func (b *Biber) resolveEntry(decl *ast.BibDecl) Entry {
 	entry := Entry{
 		Key:  decl.Key.Name,
 		Type: decl.Type,
@@ -186,4 +186,22 @@ type Entry struct {
 	Key  CiteKey
 	// All tags in the entry with the corresponding expression value.
 	Tags map[Field]ast.Expr
+}
+
+func (b *Biber) Render(w io.Writer, root ast.Node) error {
+	err := ast.Walk(root, func(n ast.Node, isEntering bool) (ast.WalkStatus, error) {
+		rend := b.renderers[n.Kind()]
+		if rend == nil {
+			return ast.WalkStop, fmt.Errorf("biber render - no renderer for node kind %s", n.Kind())
+		}
+		status, err := rend.Render(w, n, isEntering)
+		if err != nil {
+			return ast.WalkStop, fmt.Errorf("biber render - render error for node kind %s: %w", n.Kind(), err)
+		}
+		return status, nil
+	})
+	if err != nil {
+		return fmt.Errorf("biber render - walk error: %w", err)
+	}
+	return nil
 }

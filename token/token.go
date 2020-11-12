@@ -44,7 +44,7 @@ const (
 	StringHyphen    // - a hyphen counts as a token separator when parsing names
 	StringMath      // $...$
 	StringComma     // , - useful for parsing author names
-	StringBackslash // \&, \$, \{ - single character escape for special bibtex chars
+	StringBackslash // \&, \$, \{, \_ - single character escape for special bibtex chars
 	StringAccent    // \'{o} == ȯ, \ae == æ
 	StringMacro     // \url, \(, \[, \, - TeX macro, either alphabetical or a single non-alphabetical char
 	stringLiteralEnd
