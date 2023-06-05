@@ -1,10 +1,12 @@
 package bibtex
 
 import (
+	"fmt"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/jschaf/bibtex/ast"
 	"github.com/jschaf/bibtex/asts"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -22,8 +24,8 @@ func TestNew_resolve(t *testing.T) {
 			name: "inproceedings",
 			src: `
 				@inproceedings{canonne2020learning,
-				  title={Learning from satisfying assignments under continuous distributions},
-				  author={Canonne, Clement L and De, Anindya and Servedio, Rocco A},
+				  title={Learning from satisfying assignments under {Continuous} distributions},
+				  author={Canonne {Foo}, Clement L and De, Anindya and Servedio, Rocco A},
 				  booktitle={Proceedings of the Fourteenth Annual ACM-SIAM Symposium on Discrete Algorithms},
 				  pages={82--101},
 				  year={2020},
@@ -36,8 +38,8 @@ func TestNew_resolve(t *testing.T) {
 					"booktitle":    asts.Text("Proceedings of the Fourteenth Annual ACM-SIAM Symposium on Discrete Algorithms"),
 					"organization": asts.Text("SIAM"),
 					"pages":        asts.Text("82--101"),
-					"title":        asts.Text("Learning from satisfying assignments under continuous distributions"),
-					"author":       newAuthors(newAuthor("Clement L", "Canonne"), newAuthor("Anindya", "De"), newAuthor("Rocco A", "Servedio")),
+					"title":        asts.Text("Learning from satisfying assignments under Continuous distributions"),
+					"author":       newAuthors(newAuthor("Clement L", "Canonne Foo"), newAuthor("Anindya", "De"), newAuthor("Rocco A", "Servedio")),
 					"year":         asts.Text("2020"),
 				}},
 		},
@@ -108,4 +110,131 @@ func TestNew_resolve(t *testing.T) {
 			}
 		})
 	}
+}
+
+func ExampleNew_renderToString() {
+	input := `
+    @book{greub2012linear,
+      title={Linear algebra},
+      author={Greub, {WERNER} H},
+      volume={23},
+      year={2012},
+      publisher={Springer Science \& Business Media}
+    }
+
+    @inproceedings{francese2015model,
+      title={Model-driven development for multi-platform mobile applications},
+      author={Francese, Rita and Risi, Michele and Scanniello, Giuseppe and Tortora, Genoveffa},
+      booktitle={Product-Focused Software Process Improvement: 16th International Conference, PROFES 2015, Bolzano, Italy, December 2-4, 2015, Proceedings 16},
+      pages={61--67},
+      year={2015},
+      organization={Springer}
+    }`
+
+	bib := New(
+		WithResolvers(
+			// NewAuthorResolver creates a resolver for the "author" field that parses
+			// author names into an ast.Authors node.
+			NewAuthorResolver("author"),
+			// SimplifyEscapedTextResolver replaces ast.TextEscaped nodes with a plain
+			// ast.Text containing the value that was escaped. Meaning, `\&` is converted to
+			// `&`.
+			ResolverFunc(SimplifyEscapedTextResolver),
+			// RenderParsedTextResolver replaces ast.ParsedText with a simplified rendering
+			// of ast.Text.
+			NewRenderParsedTextResolver(),
+		),
+	)
+
+	file, err := bib.Parse(strings.NewReader(input))
+	if err != nil {
+		panic(err.Error())
+	}
+	entries, err := bib.Resolve(file)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	// Use intermediate type since tag output order is not deterministic.
+	// Go maps are unordered.
+	type TagOutput struct {
+		Field string
+		Value string
+	}
+	type EntryOutput struct {
+		Type string
+		Key  string
+		Tags []TagOutput
+	}
+	entryOutputs := make([]EntryOutput, 0, len(entries))
+	for _, entry := range entries {
+		tags := make([]TagOutput, 0, len(entry.Tags))
+		for field, expr := range entry.Tags {
+			switch expr := expr.(type) {
+			case ast.Authors:
+				sb := strings.Builder{}
+				if len(expr) > 0 {
+					for i, author := range expr {
+						if i > 0 {
+							sb.WriteString("\n")
+						}
+						first := author.First.(*ast.Text).Value
+						prefix := author.Prefix.(*ast.Text).Value
+						last := author.Last.(*ast.Text).Value
+						suffix := author.Suffix.(*ast.Text).Value
+						name := fmt.Sprintf("%s %s %s %s", first, prefix, last, suffix)
+						name = strings.TrimSpace(name)
+						name = strings.Join(strings.Fields(name), " ") // remove consecutive spaces
+						sb.WriteString(field)
+						sb.WriteString(": ")
+						sb.WriteString(name)
+					}
+					tags = append(tags, TagOutput{Field: field, Value: sb.String()})
+				}
+			case *ast.Text:
+				tags = append(tags, TagOutput{Field: field, Value: fmt.Sprintf("%s: %s", field, expr.Value)})
+			default:
+				tags = append(tags, TagOutput{Field: field, Value: fmt.Sprintf("%s: %T", field, expr)})
+			}
+		}
+		sort.Slice(tags, func(i, j int) bool {
+			return tags[i].Field < tags[j].Field
+		})
+		entryOutputs = append(entryOutputs, EntryOutput{
+			Type: entry.Type,
+			Key:  entry.Key,
+			Tags: tags,
+		})
+	}
+
+	for _, out := range entryOutputs {
+		fmt.Printf("type: %s\n", out.Type)
+		fmt.Printf("key: %s\n", out.Key)
+		for _, tag := range out.Tags {
+			fmt.Println(tag.Value)
+		}
+		fmt.Println()
+	}
+
+	// Output:
+	// type: book
+	// key: greub2012linear
+	// author: WERNER H Greub
+	// publisher: Springer Science & Business Media
+	// title: Linear algebra
+	// volume: 23
+	// year: 2012
+	//
+	// type: inproceedings
+	// key: francese2015model
+	// author: Rita Francese
+	// author: Michele Risi
+	// author: Giuseppe Scanniello
+	// author: Genoveffa Tortora
+	// booktitle: Product-Focused Software Process Improvement: 16th International Conference, PROFES 2015, Bolzano, Italy, December 2-4, 2015, Proceedings 16
+	// organization: Springer
+	// pages: 61--67
+	// title: Model-driven development for multi-platform mobile applications
+	// year: 2015
+	//
 }

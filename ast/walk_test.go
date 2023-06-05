@@ -36,8 +36,9 @@ func TestWalk(t *testing.T) {
 		override walkOverrideFunc
 		want     string
 	}{
-		{"visits all in depth first order",
-			&ParsedText{
+		{
+			name: "visits all in depth first order",
+			node: &ParsedText{
 				Depth: 0,
 				Delim: BraceDelimiter,
 				Values: []Expr{
@@ -47,8 +48,8 @@ func TestWalk(t *testing.T) {
 					},
 				},
 			},
-			func(_ Node) (bool, WalkStatus, error) { return false, WalkContinue, nil },
-			strings.Join(
+			override: func(_ Node) (bool, WalkStatus, error) { return false, WalkContinue, nil },
+			want: strings.Join(
 				[]string{
 					"<*ast.ParsedText>",
 					"<*ast.Text>first</*ast.Text>",
@@ -57,8 +58,9 @@ func TestWalk(t *testing.T) {
 				},
 				""),
 		},
-		{"visits all in depth first order",
-			&ParsedText{
+		{
+			name: "visits all in depth first order",
+			node: &ParsedText{
 				Depth: 0,
 				Delim: BraceDelimiter,
 				Values: []Expr{
@@ -68,17 +70,36 @@ func TestWalk(t *testing.T) {
 					},
 				},
 			},
-			func(n Node) (bool, WalkStatus, error) {
+			override: func(n Node) (bool, WalkStatus, error) {
 				if t, ok := n.(*Text); ok && t.Value == "second" {
 					return true, WalkStop, nil
 				}
 				return false, WalkContinue, nil
 			},
-			strings.Join(
+			want: strings.Join(
 				[]string{
 					"<*ast.ParsedText>",
 					"<*ast.Text>first</*ast.Text>",
 					"<*ast.ParsedText>",
+				},
+				""),
+		},
+		{
+			name: "visits authors",
+			node: Authors{
+				&Author{
+					First: &Text{Value: "first"},
+					Last: &ParsedText{
+						Values: []Expr{&Text{Value: "last-first"}, &Text{Value: "last-second"}},
+					},
+				},
+			},
+			override: func(_ Node) (bool, WalkStatus, error) { return false, WalkContinue, nil },
+			want: strings.Join(
+				[]string{
+					"<ast.Authors>",
+					"<*ast.Author><*ast.Text>first</*ast.Text><*ast.ParsedText><*ast.Text>last-first</*ast.Text><*ast.Text>last-second</*ast.Text></*ast.ParsedText></*ast.Author>",
+					"</ast.Authors>",
 				},
 				""),
 		},

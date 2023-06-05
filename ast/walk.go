@@ -34,6 +34,34 @@ func walkHelper(n Node, walker Walker) (WalkStatus, error) {
 	// Recursive case only applies if we aren't skipping children:
 	if st1 != WalkSkipChildren {
 		switch t := n.(type) {
+		case Authors:
+			for _, author := range t {
+				if st, err := walkHelper(author, walker); st == WalkStop || err != nil {
+					return st, err
+				}
+			}
+		case *Author:
+			if t.First != nil {
+				if st, err := walkHelper(t.First, walker); st == WalkStop || err != nil {
+					return st, err
+				}
+			}
+			if t.Prefix != nil {
+				if st, err := walkHelper(t.Prefix, walker); st == WalkStop || err != nil {
+					return st, err
+				}
+			}
+			if t.Last != nil {
+				if st, err := walkHelper(t.Last, walker); st == WalkStop || err != nil {
+					return st, err
+				}
+			}
+			if t.Suffix != nil {
+				if st, err := walkHelper(t.Suffix, walker); st == WalkStop || err != nil {
+					return st, err
+				}
+			}
+
 		case *File:
 			for _, entry := range t.Entries {
 				if st, err := walkHelper(entry, walker); st == WalkStop || err != nil {

@@ -1,6 +1,3 @@
-// Package resolver transforms a Bibtex AST into complete bibtex entries,
-// resolving cross references, parsing authors and editors, and normalizing
-// page numbers.
 package bibtex
 
 import (
@@ -63,26 +60,34 @@ func (r *RenderParsedTextResolver) Resolve(root ast.Node) error {
 		if !isEntering {
 			return ast.WalkSkipChildren, nil
 		}
-		if _, ok := n.(*ast.TagStmt); !ok {
+		tag, ok := n.(*ast.TagStmt)
+		if !ok {
 			return ast.WalkContinue, nil
 		}
-		tag := n.(*ast.TagStmt)
-		if _, ok := tag.Value.(*ast.ParsedText); !ok {
+
+		switch expr := tag.Value.(type) {
+		case ast.Authors:
+			// Descend into authors and render each author part, like first
+			// name and last name.
+			return ast.WalkContinue, nil
+
+		case *ast.ParsedText:
+			sb := &strings.Builder{}
+			sb.Grow(16)
+			if err := r.rend.Render(sb, expr); err != nil {
+				return ast.WalkStop, fmt.Errorf("render parsed text tag=%q: %w", tag.Name, err)
+			}
+			tag.Value = &ast.Text{Value: sb.String()}
+			for i, val := range expr.Values {
+				if esc, ok := val.(*ast.TextEscaped); ok {
+					expr.Values[i] = &ast.Text{Value: esc.Value}
+				}
+			}
+			return ast.WalkContinue, nil
+
+		default:
 			return ast.WalkSkipChildren, nil
 		}
-		txt := tag.Value.(*ast.ParsedText)
-		sb := &strings.Builder{}
-		sb.Grow(16)
-		if err := r.rend.Render(sb, txt); err != nil {
-			return ast.WalkStop, fmt.Errorf("render parsed text tag=%q: %w", tag.Name, err)
-		}
-		tag.Value = &ast.Text{Value: sb.String()}
-		for i, val := range txt.Values {
-			if esc, ok := val.(*ast.TextEscaped); ok {
-				txt.Values[i] = &ast.Text{Value: esc.Value}
-			}
-		}
-		return ast.WalkContinue, nil
 	})
 	if err != nil {
 		return fmt.Errorf("simplify escaped text resolver: %w", err)
