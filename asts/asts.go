@@ -1,4 +1,4 @@
-// Packages asts contains utilities for constructing and manipulating ASTs.
+// Package asts contains utilities for constructing and manipulating ASTs.
 package asts
 
 import (
@@ -27,16 +27,16 @@ func BraceTextExpr(depth int, ss ...ast.Expr) *ast.ParsedText {
 	}
 }
 
-// BraceTextExpr returns parsed text delimited by braces.
+// BraceText returns parsed text delimited by braces.
 // Uses the following strategies to convert each string into a text expression:
-// - If the string is all whitespace, convert to ast.TextSpace.
-// - If the string begins and ends with '$', convert to ast.TextMath.
-// - If the string begins with '{' and ends with '}', convert to brace text
-//   recursively by removing the braces and splitting on space.
-// - If the string is ',', convert to ast.TextComma.
-// - If the string begins with '\' and has an alphabetical char, convert to
-//   command ast.TextMacro.
-// - Otherwise, convert to ast.Text.
+//   - If the string is all whitespace, convert to ast.TextSpace.
+//   - If the string begins and ends with '$', convert to ast.TextMath.
+//   - If the string begins with '{' and ends with '}', convert to brace text
+//     recursively by removing the braces and splitting on space.
+//   - If the string is ',', convert to ast.TextComma.
+//   - If the string begins with '\' and has an alphabetical char, convert to
+//     command ast.TextMacro.
+//   - Otherwise, convert to ast.Text.
 func BraceText(depth int, ss ...interface{}) *ast.ParsedText {
 	xs := make([]ast.Expr, len(ss))
 	for i, s := range ss {
@@ -106,12 +106,12 @@ func QuotedTextExpr(depth int, ss ...ast.Expr) *ast.ParsedText {
 
 // QuotedText returns parsed text delimited by braces.
 // Uses the following strategies to convert each string into a text expression:
-// - If the string is all whitespace, convert to ast.TextSpace.
-// - If the string begins and ends with '$', convert to ast.TextMath.
-// - If the string begins with '{' and ends with '}', convert to brace text
-//   recursively by removing the braces and splitting on space.
-// - If the string is ',', convert to ast.TextComma.
-// - Otherwise, convert to ast.Text.
+//   - If the string is all whitespace, convert to ast.TextSpace.
+//   - If the string begins and ends with '$', convert to ast.TextMath.
+//   - If the string begins with '{' and ends with '}', convert to brace text
+//     recursively by removing the braces and splitting on space.
+//   - If the string is ',', convert to ast.TextComma.
+//   - Otherwise, convert to ast.Text.
 func QuotedText(depth int, ss ...string) *ast.ParsedText {
 	xs := make([]ast.Expr, len(ss))
 	for i, s := range ss {

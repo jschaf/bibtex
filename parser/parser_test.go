@@ -2,7 +2,7 @@ package parser
 
 import (
 	gotok "go/token"
-	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -45,7 +45,7 @@ func TestParseFile_validFiles(t *testing.T) {
 
 func BenchmarkParseFile_vldb(b *testing.B) {
 	b.StopTimer()
-	f, err := ioutil.ReadFile("testdata/vldb.bib")
+	f, err := os.ReadFile("testdata/vldb.bib")
 	if err != nil {
 		b.Fatalf("read file: %s", err.Error())
 	}
@@ -150,8 +150,8 @@ func TestParseFile_BibDecl_NoParseStrings(t *testing.T) {
 			asts.WithBibType("article"),
 			asts.WithBibKeys("111", "extra"),
 			asts.WithBibTags("key", asts.Ident("bar"))},
-		{`@inproceeding {111, key = bar, a, b, k2 = "v2" }`,
-			asts.WithBibType("inproceeding"),
+		{`@inproceedings {111, key = bar, a, b, k2 = "v2" }`,
+			asts.WithBibType("inproceedings"),
 			asts.WithBibKeys("111", "a", "b"),
 			asts.WithBibTags("key", asts.Ident("bar"), "k2", asts.UnparsedText("v2"))},
 	}
@@ -183,45 +183,64 @@ func TestParseFile_BibDecl_NoParseStrings(t *testing.T) {
 
 func TestParseFile_BibDecl_ModeParseStrings(t *testing.T) {
 	tests := []struct {
+		name   string
 		src    string
 		keysFn func(*ast.BibDecl)
 		tagsFn func(*ast.BibDecl)
 	}{
-		{"@article { cite_key, key = {foo} }",
-			asts.WithBibKeys("cite_key"),
-			asts.WithBibTags("key", asts.BraceText(0, "foo"))},
-		{"@article { cite_key, key = {{f}oo}}",
-			asts.WithBibKeys("cite_key"),
-			asts.WithBibTags("key", asts.BraceText(0, "{f}", "oo"))},
-		{`@article { cite_key, key = {{\textsc f}oo}}`,
-			asts.WithBibKeys("cite_key"),
-			asts.WithBibTags("key", asts.BraceText(0, `{\textsc f}`, "oo"))},
-		{`@article { cite_key, key = "foo" }`,
-			asts.WithBibKeys("cite_key"),
-			asts.WithBibTags("key", asts.QuotedText(0, "foo"))},
-		{"@article { cite_key, key = {f\no\ro} }",
-			asts.WithBibKeys("cite_key"),
-			asts.WithBibTags("key", asts.BraceText(0, "f", " ", "o", " ", "o"))},
-		{`@article{cite_key, howPublished = "\url{http://example.com/foo--bar/~baz/#}" }`,
-			asts.WithBibKeys("cite_key"),
-			asts.WithBibTags("howPublished",
+		{
+			name:   "article cite key and key",
+			src:    "@article { cite_key, key = {foo} }",
+			keysFn: asts.WithBibKeys("cite_key"),
+			tagsFn: asts.WithBibTags("key", asts.BraceText(0, "foo"))},
+		{
+			name:   "article key with nested braces",
+			src:    "@article { cite_key, key = {{f}oo}}",
+			keysFn: asts.WithBibKeys("cite_key"),
+			tagsFn: asts.WithBibTags("key", asts.BraceText(0, "{f}", "oo"))},
+		{
+			name:   "article key with textsc",
+			src:    `@article { cite_key, key = {{\textsc f}oo}}`,
+			keysFn: asts.WithBibKeys("cite_key"),
+			tagsFn: asts.WithBibTags("key", asts.BraceText(0, `{\textsc f}`, "oo"))},
+		{
+			name:   "article key with plain double quotes",
+			src:    `@article { cite_key, key = "foo" }`,
+			keysFn: asts.WithBibKeys("cite_key"),
+			tagsFn: asts.WithBibTags("key", asts.QuotedText(0, "foo"))},
+		{
+			name:   "article key with newlines",
+			src:    "@article { cite_key, key = {f\no\ro} }",
+			keysFn: asts.WithBibKeys("cite_key"),
+			tagsFn: asts.WithBibTags("key", asts.BraceText(0, "f", " ", "o", " ", "o"))},
+		{
+			name:   "article howPublished url macro",
+			src:    `@article{cite_key, howPublished = "\url{http://example.com/foo--bar/~baz/#}" }`,
+			keysFn: asts.WithBibKeys("cite_key"),
+			tagsFn: asts.WithBibTags("howPublished",
 				asts.QuotedTextExpr(0, asts.Macro("url", "http://example.com/foo--bar/~baz/#")))},
-		{`@article{cite_key, url = "\url{http://foo.com/bar~qux-baz/#}" }`,
-			asts.WithBibKeys("cite_key"),
-			asts.WithBibTags("url",
+		{
+			name:   "article url macro",
+			src:    `@article{cite_key, url = "\url{http://foo.com/bar~qux-baz/#}" }`,
+			keysFn: asts.WithBibKeys("cite_key"),
+			tagsFn: asts.WithBibTags("url",
 				asts.QuotedTextExpr(0, asts.Macro("url", "http://foo.com/bar~qux-baz/#")))},
-		{`@article { cite_key, title = {\href{https://nyt.com/}{Dollar \$140}} }`,
-			asts.WithBibKeys("cite_key"),
-			asts.WithBibTags("title",
+		{
+			name:   "article href macro",
+			src:    `@article { cite_key, title = {\href{https://nyt.com/}{Dollar \$140}} }`,
+			keysFn: asts.WithBibKeys("cite_key"),
+			tagsFn: asts.WithBibTags("title",
 				asts.BraceText(0, asts.Macro("href", "https://nyt.com/"),
 					asts.BraceText(1, "Dollar", " ", asts.Escaped('$'), "140")))},
-		{`@article { cite_key, title = {foo \& bar} }`,
-			asts.WithBibKeys("cite_key"),
-			asts.WithBibTags("title",
+		{
+			name:   "article title escaped ampersand",
+			src:    `@article { cite_key, title = {foo \& bar} }`,
+			keysFn: asts.WithBibKeys("cite_key"),
+			tagsFn: asts.WithBibTags("title",
 				asts.BraceText(0, `foo`, ` `, asts.Escaped('&'), ` `, `bar`))},
 	}
 	for _, tt := range tests {
-		t.Run(tt.src, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			f, err := ParseFile(gotok.NewFileSet(), "", tt.src, ParseStrings|Trace)
 			if err != nil {
 				t.Fatal(err)

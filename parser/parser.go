@@ -321,7 +321,7 @@ func (p *parser) advance(to map[token.Token]bool) {
 		if to[p.tok] {
 			// Return only if parser made some progress since last
 			// sync or if it has not reached 10 advance calls without
-			// progress. Otherwise consume at least one token to
+			// progress. Otherwise, consume at least one token to
 			// avoid an endless parser loop (it is possible that
 			// both parseOperand and parseStmt call advance and
 			// correctly do not advance, thus the need for the
@@ -402,13 +402,7 @@ func (p *parser) parseMacroURL(name string) ast.Expr {
 	sb := strings.Builder{}
 	sb.Grow(32)
 	for p.tok != token.StringRBrace && p.tok != token.StringSpace {
-		switch p.tok {
-		case token.StringMath, token.StringNBSP, token.StringContents, token.StringComma, token.StringHyphen:
-			sb.WriteString(p.lit)
-		default:
-			p.next()
-			return &ast.BadExpr{From: urlCmd.Cmd, To: p.pos}
-		}
+		sb.WriteString(p.lit)
 		p.next()
 	}
 	urlCmd.Values = []ast.Expr{
@@ -502,6 +496,56 @@ func (p *parser) parseStringLiteral() ast.Expr {
 			Values: values,
 			Closer: p.pos,
 		}
+		return txt
+
+	case token.StringLBrace:
+		return p.parseText(0)
+
+	default:
+		p.errorExpected(p.pos, "string literal")
+		p.advance(stmtStart)
+		return &ast.BadExpr{
+			From: pos,
+			To:   p.pos,
+		}
+	}
+}
+
+func (p *parser) parseURLStringLiteral() ast.Expr {
+	sb := strings.Builder{}
+	sb.Grow(32)
+	pos := p.pos
+	switch tok := p.tok; tok {
+	case token.DoubleQuote:
+		p.next()
+
+		if p.tok == token.StringMacro {
+			url := p.parseMacroURL(p.lit)
+			p.expect(token.StringRBrace)
+			p.expect(token.DoubleQuote)
+			return &ast.ParsedText{
+				Opener: pos,
+				Depth:  0,
+				Delim:  ast.QuoteDelimiter,
+				Values: []ast.Expr{url},
+				Closer: p.pos,
+			}
+		}
+
+		for p.tok != token.DoubleQuote {
+			if p.tok == token.EOF {
+				p.errorExpected(p.pos, "double quote")
+				return &ast.BadExpr{From: pos, To: p.pos}
+			}
+
+			sb.WriteString(p.lit)
+			p.next()
+		}
+		txt := &ast.Text{
+			ValuePos: pos,
+			Value:    sb.String(),
+		}
+		p.expect(token.DoubleQuote)
 		return txt
 
 	case token.StringLBrace:
@@ -688,7 +732,12 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 				p.error(key.Pos(), "tag keys must not start with a number")
 			}
 			p.next()
-			val := p.parseExpr()
+			var val ast.Expr
+			if key.Name == "url" && p.tok.IsStringLiteral() {
+				val = p.parseURLStringLiteral()
+			} else {
+				val = p.parseExpr()
+			}
 			fixVal := fixUpFields(key.Name, val)
 			tag := &ast.TagStmt{
 				Doc:     doc,
