@@ -10,13 +10,15 @@ import (
 )
 
 // CiteKey is the citation key for a Bibtex entry, like the "foo" in:
-//   @article{ foo }
+//
+//	@article{ foo }
 type CiteKey = string
 
 // EntryType is the type of Bibtex entry. An "@article" entry is represented as
 // "article". String alias to allow for unknown entries.
 type EntryType = string
 
+//goland:noinspection GoUnusedConst
 const (
 	EntryArticle       EntryType = "article"
 	EntryBook          EntryType = "book"
@@ -36,6 +38,7 @@ const (
 // Field is a single field in a Bibtex Entry.
 type Field = string
 
+//goland:noinspection GoUnusedConst
 const (
 	FieldAddress      Field = "address"
 	FieldAnnote       Field = "annote"
@@ -64,7 +67,7 @@ const (
 	FieldYear         Field = "year"
 )
 
-// Bibtex contains methods for parsing, resolving, and rendering bibtex.
+// Biber contains methods for parsing, resolving, and rendering bibtex.
 type Biber struct {
 	usePresets bool
 	parserMode parser.Mode
@@ -80,7 +83,8 @@ type Option func(*Biber)
 
 // WithParserMode sets the parser options overwriting any previous parser
 // options. parser.Mode is a bitflag so use bit-or for multiple flags like so:
-//     WithParserMode(parser.ParserStrings|parser.Trace)
+//
+//	WithParserMode(parser.ParserStrings|parser.Trace)
 func WithParserMode(mode parser.Mode) Option {
 	return func(b *Biber) {
 		b.parserMode = mode

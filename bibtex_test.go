@@ -42,6 +42,27 @@ func TestNew_resolve(t *testing.T) {
 				}},
 		},
 		{
+			name: "book linear algebra",
+			src: `
+				@book{greub2012linear,
+				  title={Linear algebra},
+				  author={Greub, Werner H},
+				  volume={23},
+				  year={2012},
+				  publisher={Springer Science \& Business Media}
+				}`,
+			want: Entry{
+				Type: EntryBook,
+				Key:  "greub2012linear",
+				Tags: map[Field]ast.Expr{
+					"title":     asts.Text("Linear algebra"),
+					"author":    newAuthors(newAuthor("Werner H", "Greub")),
+					"publisher": asts.Text("Springer Science & Business Media"),
+					"year":      asts.Text("2012"),
+					"volume":    asts.Text("23"),
+				}},
+		},
+		{
 			name: "book with only title",
 			src:  `@book{citekey, title={Foo \& Bar \$1} }`,
 			want: Entry{Type: EntryBook, Key: "citekey", Tags: map[Field]ast.Expr{"title": asts.Text("Foo & Bar $1")}},
