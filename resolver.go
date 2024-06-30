@@ -2,9 +2,10 @@ package bibtex
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/jschaf/bibtex/ast"
 	"github.com/jschaf/bibtex/render"
-	"strings"
 )
 
 // Resolver is an in-place mutation of an ast.Node to support resolving Bibtex

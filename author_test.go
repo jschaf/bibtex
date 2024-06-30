@@ -1,10 +1,11 @@
 package bibtex
 
 import (
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/jschaf/bibtex/ast"
 	"github.com/jschaf/bibtex/parser"
-	"testing"
 )
 
 func TestResolveAuthors_single(t *testing.T) {
@@ -22,7 +23,8 @@ func TestResolveAuthors_single(t *testing.T) {
 		{"{von Beethoven}, Ludwig", newAuthor("Ludwig", "von Beethoven")},
 		{"Jean-Paul Sartre", newAuthor("Jean-Paul", "Sartre")},
 		{"First von Last", newAuthor("First", "von", "Last")},
-		{"Charles Louis Xavier Joseph de la Vallee Poussin",
+		{
+			"Charles Louis Xavier Joseph de la Vallee Poussin",
 			newAuthor("Charles Louis Xavier Joseph", "de la", "Vallee Poussin"),
 		},
 	}

@@ -747,6 +747,8 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 				Value:   fixVal,
 			}
 			tags = append(tags, tag)
+		default:
+			// Keep going.
 		}
 		switch p.tok {
 		case token.Comma:
@@ -758,6 +760,8 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 				extraKeys = append(extraKeys, key)
 			}
 			continue
+		default:
+			// Keep going.
 		}
 	}
 	closer := p.expectCloser(opener)

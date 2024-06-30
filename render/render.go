@@ -2,8 +2,9 @@ package render
 
 import (
 	"fmt"
-	"github.com/jschaf/bibtex/ast"
 	"io"
+
+	"github.com/jschaf/bibtex/ast"
 )
 
 type NodeRenderer interface {
@@ -47,32 +48,40 @@ func Defaults() []NodeRenderer {
 	}
 }
 
-func renderTexComment(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+func renderTexComment(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
 	return ast.WalkContinue, nil
 }
-func renderTexCommentGroup(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderTexCommentGroup(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
 	return ast.WalkContinue, nil
 }
-func renderBadExpr(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderBadExpr(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
 	return ast.WalkStop, fmt.Errorf("render bad expr")
 }
-func renderIdent(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderIdent(w io.Writer, n ast.Node, _ bool) (ast.WalkStatus, error) {
 	ident := n.(*ast.Ident)
 	_, _ = w.Write([]byte(ident.Name))
 	return ast.WalkContinue, nil
 }
-func renderNumber(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderNumber(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
 	return ast.WalkContinue, nil
 }
-func renderAuthors(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderAuthors(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
 	return ast.WalkContinue, nil
 }
-func renderAuthor(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderAuthor(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
 	return ast.WalkContinue, nil
 }
-func renderUnparsedText(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderUnparsedText(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
 	return ast.WalkContinue, nil
 }
+
 func renderParsedText(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
 	txt := n.(*ast.ParsedText)
 	left, right := `{`, `}`
@@ -90,33 +99,38 @@ func renderParsedText(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, e
 	}
 	return ast.WalkContinue, nil
 }
-func renderText(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderText(w io.Writer, n ast.Node, _ bool) (ast.WalkStatus, error) {
 	txt := n.(*ast.TextSpace)
 	if _, err := w.Write([]byte(txt.Value)); err != nil {
 		return ast.WalkStop, fmt.Errorf("default renderText: %w", err)
 	}
 	return ast.WalkContinue, nil
 }
-func renderTextComma(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderTextComma(w io.Writer, _ ast.Node, _ bool) (ast.WalkStatus, error) {
 	if _, err := w.Write([]byte(",")); err != nil {
 		return ast.WalkStop, fmt.Errorf("default renderTextComma: %w", err)
 	}
 	return ast.WalkContinue, nil
 }
-func renderTextEscaped(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderTextEscaped(w io.Writer, n ast.Node, _ bool) (ast.WalkStatus, error) {
 	esc := n.(*ast.TextEscaped)
 	if _, err := w.Write([]byte(`\` + esc.Value)); err != nil {
 		return ast.WalkStop, fmt.Errorf("default renderTextEscaped: %w", err)
 	}
 	return ast.WalkContinue, nil
 }
-func renderTextHyphen(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderTextHyphen(w io.Writer, _ ast.Node, _ bool) (ast.WalkStatus, error) {
 	if _, err := w.Write([]byte("-")); err != nil {
 		return ast.WalkStop, fmt.Errorf("default renderTextHyphen: %w", err)
 	}
 	return ast.WalkContinue, nil
 }
-func renderTextMath(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderTextMath(w io.Writer, _ ast.Node, entering bool) (ast.WalkStatus, error) {
 	if entering {
 		if _, err := w.Write([]byte("$")); err != nil {
 			return ast.WalkStop, fmt.Errorf("default renderTextMath left: %w", err)
@@ -128,53 +142,64 @@ func renderTextMath(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, err
 	}
 	return ast.WalkContinue, nil
 }
-func renderTextNBSP(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderTextNBSP(w io.Writer, _ ast.Node, _ bool) (ast.WalkStatus, error) {
 	if _, err := w.Write([]byte(" ")); err != nil {
 		return ast.WalkStop, fmt.Errorf("default renderTextNBSP: %w", err)
 	}
 	return ast.WalkContinue, nil
 }
-func renderTextSpace(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderTextSpace(w io.Writer, n ast.Node, _ bool) (ast.WalkStatus, error) {
 	sp := n.(*ast.TextSpace)
 	if _, err := w.Write([]byte(sp.Value)); err != nil {
 		return ast.WalkStop, fmt.Errorf("default renderTextSpace: %w", err)
 	}
 	return ast.WalkContinue, nil
 }
-func renderTextMacro(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderTextMacro(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
 	// Skip the command and write the args.
 	return ast.WalkContinue, nil
 }
-func renderConcatExpr(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderConcatExpr(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
 	return ast.WalkContinue, nil // skip
 }
-func renderBadStmt(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderBadStmt(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
 	return ast.WalkStop, fmt.Errorf("render bad stmt")
 }
-func renderTagStmt(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
-	return ast.WalkContinue, nil
-}
-func renderBadDecl(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
-	return ast.WalkContinue, nil
-}
-func renderAbbrevDecl(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
-	return ast.WalkContinue, nil
-}
-func renderBibDecl(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
-	return ast.WalkContinue, nil
-}
-func renderPreambleDecl(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
-	return ast.WalkContinue, nil
-}
-func renderFile(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
-	return ast.WalkContinue, nil
-}
-func renderPackage(w io.Writer, n ast.Node, entering bool) (ast.WalkStatus, error) {
+
+func renderTagStmt(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
 	return ast.WalkContinue, nil
 }
 
-type TextRenderer struct {
+func renderBadDecl(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
+	return ast.WalkContinue, nil
 }
+
+func renderAbbrevDecl(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
+	return ast.WalkContinue, nil
+}
+
+func renderBibDecl(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
+	return ast.WalkContinue, nil
+}
+
+func renderPreambleDecl(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
+	return ast.WalkContinue, nil
+}
+
+func renderFile(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
+	return ast.WalkContinue, nil
+}
+
+func renderPackage(io.Writer, ast.Node, bool) (ast.WalkStatus, error) {
+	return ast.WalkContinue, nil
+}
+
+type TextRenderer struct{}
 
 type Option func(p *TextRenderer)
 

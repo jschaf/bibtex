@@ -1,4 +1,4 @@
-// This file contains the exported entry points for invoking the parser.
+// Package parser is the exported entry points for invoking the parser.
 package parser
 
 import (
@@ -6,7 +6,7 @@ import (
 	"errors"
 	gotok "go/token"
 	"io"
-	"io/ioutil"
+	"os"
 
 	"github.com/jschaf/bibtex/ast"
 )
@@ -14,7 +14,6 @@ import (
 // If src != nil, readSource converts src to a []byte if possible;
 // otherwise it returns an error. If src == nil, readSource returns
 // the result of reading the file specified by filename.
-//
 func readSource(filename string, src interface{}) ([]byte, error) {
 	if src != nil {
 		switch s := src.(type) {
@@ -28,11 +27,11 @@ func readSource(filename string, src interface{}) ([]byte, error) {
 				return s.Bytes(), nil
 			}
 		case io.Reader:
-			return ioutil.ReadAll(s)
+			return io.ReadAll(s)
 		}
 		return nil, errors.New("invalid source")
 	}
-	return ioutil.ReadFile(filename)
+	return os.ReadFile(filename)
 }
 
 // A Mode value is a set of flags (or 0).

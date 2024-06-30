@@ -1,12 +1,13 @@
 package scanner
 
 import (
-	"github.com/google/go-cmp/cmp"
 	gotok "go/token"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	"github.com/jschaf/bibtex/token"
 )
@@ -140,7 +141,6 @@ func TestScanner_Scan(t *testing.T) {
 		}
 		isDone := false
 		t.Run(e.tok.String()+"-"+e.lit, func(t *testing.T) {
-
 			p, tok, lit := s.Scan()
 
 			// check position
@@ -187,7 +187,6 @@ func TestScanner_Scan(t *testing.T) {
 			// update position
 			epos.Offset += len(e.lit) + len(whitespace)
 			epos.Line += newlineCount(e.lit) + whitespaceLineCount
-
 		})
 		if isDone {
 			break
@@ -332,7 +331,8 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 		{`="{Fo}o"`, toks("=", `"`, "{", "Fo", "}", "o", `"`), nil},
 		{`={{Fo}o}`, toks(`=`, "{", "{", "Fo", "}", "o", `}`), nil},
 		// Invalid
-		{`"{ {$x}"`, []stringTok{tok(`"`), tok("{"), tok(" "), tok("{"),
+		{`"{ {$x}"`, []stringTok{
+			tok(`"`), tok("{"), tok(" "), tok("{"),
 			{t: token.Illegal, lit: `$x}"`, raw: `$x}"`},
 		}, errs("math in string literal not terminated")},
 	}
@@ -425,7 +425,6 @@ func TestScanner_Scan_Errors(t *testing.T) {
 				}
 			}
 		})
-
 	}
 }
 

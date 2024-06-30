@@ -100,7 +100,7 @@ func (s *Scanner) peek() byte {
 	return 0
 }
 
-// A mode value is a set of flags (or 0).
+// Mode is a set of flags (or 0).
 // They control scanner behavior.
 type Mode uint
 
@@ -169,7 +169,8 @@ func IsAsciiLetter(ch rune) bool { return 'a' <= lower(ch) && lower(ch) <= 'z' }
 // Taken from the btparse docs:
 // https://metacpan.org/pod/release/AMBS/Text-BibTeX-0.66/btparse/doc/bt_language.pod
 // Includes letters, digits, underscores, hyphens and the following:
-//     ! $ & * + - . / : ; < > ? [ ] ^ _ ` |
+//
+//	! $ & * + - . / : ; < > ? [ ] ^ _ ` |
 func IsName(ch rune) bool {
 	return ('a' <= ch && ch <= 'z') ||
 		('A' <= ch && ch <= 'Z') ||
@@ -366,7 +367,6 @@ func (s *Scanner) scanSpecialCharStringAccent() (token.Token, string) {
 		return token.Illegal, ""
 	}
 	return token.StringAccent, string(s.src[offs:s.offset])
-
 }
 
 func (s *Scanner) isSpecialStringChar(ch rune) bool {

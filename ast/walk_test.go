@@ -2,9 +2,10 @@ package ast
 
 import (
 	"fmt"
-	"github.com/google/go-cmp/cmp"
 	"strings"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 type walkOverrideFunc = func(Node) (bool, WalkStatus, error)

@@ -25,6 +25,6 @@ func (s SimplifyTagTransformer) Transform(node Node) error {
 	return nil
 }
 
-func SimplifyParsedText(txt *ParsedText) *Text {
+func SimplifyParsedText(_ *ParsedText) *Text {
 	return nil
 }

@@ -1,8 +1,9 @@
 package bibtex
 
 import (
-	"github.com/jschaf/bibtex/asts"
 	"testing"
+
+	"github.com/jschaf/bibtex/asts"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/jschaf/bibtex/ast"

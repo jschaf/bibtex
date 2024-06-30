@@ -8,10 +8,10 @@ import (
 // newAuthor creates a new author using the number of strings to infer
 // the name structure as follows:
 //
-//     1 strings: Last
-//     2 strings: First, Last
-//     3 strings: First, Prefix, Last
-//     4 strings: First, Prefix, Last, Suffix
+//	1 strings: Last
+//	2 strings: First, Last
+//	3 strings: First, Prefix, Last
+//	4 strings: First, Prefix, Last, Suffix
 func newAuthor(names ...string) *ast.Author {
 	switch len(names) {
 	case 0:

@@ -2,13 +2,14 @@ package bibtex
 
 import (
 	"fmt"
+	"sort"
+	"strings"
+	"testing"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/jschaf/bibtex/ast"
 	"github.com/jschaf/bibtex/asts"
-	"sort"
-	"strings"
-	"testing"
 )
 
 func TestNew_resolve(t *testing.T) {
@@ -41,7 +42,8 @@ func TestNew_resolve(t *testing.T) {
 					"title":        asts.Text("Learning from satisfying assignments under Continuous distributions"),
 					"author":       newAuthors(newAuthor("Clement L", "Canonne Foo"), newAuthor("Anindya", "De"), newAuthor("Rocco A", "Servedio")),
 					"year":         asts.Text("2020"),
-				}},
+				},
+			},
 		},
 		{
 			name: "book linear algebra",
@@ -62,7 +64,8 @@ func TestNew_resolve(t *testing.T) {
 					"publisher": asts.Text("Springer Science & Business Media"),
 					"year":      asts.Text("2012"),
 					"volume":    asts.Text("23"),
-				}},
+				},
+			},
 		},
 		{
 			name: "book with only title",

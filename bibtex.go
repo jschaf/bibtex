@@ -2,11 +2,12 @@ package bibtex
 
 import (
 	"fmt"
+	gotok "go/token"
+	"io"
+
 	"github.com/jschaf/bibtex/ast"
 	"github.com/jschaf/bibtex/parser"
 	"github.com/jschaf/bibtex/render"
-	gotok "go/token"
-	"io"
 )
 
 // CiteKey is the citation key for a Bibtex entry, like the "foo" in:

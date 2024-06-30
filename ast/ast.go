@@ -78,20 +78,20 @@ func (k NodeKind) String() string {
 	return kindNames[k]
 }
 
-// All expression nodes implement the Expr interface.
+// Expr is marker for all expression nodes.
 type Expr interface {
 	Node
 	exprNode()
 }
 
-// All statement nodes implement the Stmt interface, like bibtex entry tags.
+// Stmt is a marker for all statement nodes.
 type Stmt interface {
 	Node
 	stmtNode()
 }
 
-// All declaration nodes implement the Decl interface, like the @article,
-// @STRING, @COMMENT, and @PREAMBLE entries.
+// Decl is a marker for all declaration nodes, like the @article, @STRING,
+// @COMMENT, and @PREAMBLE entries.
 type Decl interface {
 	Node
 	declNode()
@@ -282,6 +282,7 @@ func (x Authors) Pos() gotok.Pos {
 		return x[0].From
 	}
 }
+
 func (x Authors) End() gotok.Pos {
 	if len(x) == 0 {
 		return gotok.NoPos

@@ -2,10 +2,11 @@ package bibtex
 
 import (
 	"fmt"
-	"github.com/jschaf/bibtex/ast"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/jschaf/bibtex/ast"
 )
 
 const authorSep = "and"
@@ -195,10 +196,10 @@ func resolveAuthor0(xs []ast.Expr) *ast.Author {
 
 // resolveAuthorN resolves an author entry that contains 1 or more commas.
 //
-//     1 comma:  last, first             => Author{first, "",  last, ""}
-//     1 comma:  von last, first         => Author(first, von, last, "")
-//     2 commas: last, suffix, first     => Author{first, "",  last, suffix}
-//     2 commas: von last, suffix, first => Author{first, von, last, suffix}
+//	1 comma:  last, first             => Author{first, "",  last, ""}
+//	1 comma:  von last, first         => Author(first, von, last, "")
+//	2 commas: last, suffix, first     => Author{first, "",  last, suffix}
+//	2 commas: von last, suffix, first => Author{first, von, last, suffix}
 func resolveAuthorN(xs []ast.Expr, commas []int) *ast.Author {
 	part1 := xs[:commas[0]]
 	idx1 := 0

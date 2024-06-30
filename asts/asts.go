@@ -3,12 +3,13 @@ package asts
 
 import (
 	"fmt"
-	"github.com/jschaf/bibtex/ast"
-	"github.com/jschaf/bibtex/scanner"
-	"github.com/jschaf/bibtex/token"
 	gotok "go/token"
 	"strconv"
 	"strings"
+
+	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/scanner"
+	"github.com/jschaf/bibtex/token"
 )
 
 func UnparsedBraceText(s string) *ast.UnparsedText {

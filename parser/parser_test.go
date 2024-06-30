@@ -126,34 +126,48 @@ func TestParseFile_BibDecl_NoParseStrings(t *testing.T) {
 		keysFn func(*ast.BibDecl)
 		tagsFn func(*ast.BibDecl)
 	}{
-		{"@article { cite_key, key = {foo} }",
+		{
+			"@article { cite_key, key = {foo} }",
 			asts.WithBibType("article"),
 			asts.WithBibKeys("cite_key"),
-			asts.WithBibTags("key", asts.UnparsedBraceText("foo"))},
-		{"@article {cite_key1, key = {foo} }",
+			asts.WithBibTags("key", asts.UnparsedBraceText("foo")),
+		},
+		{
+			"@article {cite_key1, key = {foo} }",
 			asts.WithBibType("article"),
 			asts.WithBibKeys("cite_key1"),
-			asts.WithBibTags("key", asts.UnparsedBraceText("foo"))},
-		{"@article {111, key = {foo} }",
+			asts.WithBibTags("key", asts.UnparsedBraceText("foo")),
+		},
+		{
+			"@article {111, key = {foo} }",
 			asts.WithBibType("article"),
 			asts.WithBibKeys("111"),
-			asts.WithBibTags("key", asts.UnparsedBraceText("foo"))},
-		{"@article {111, key = bar }",
+			asts.WithBibTags("key", asts.UnparsedBraceText("foo")),
+		},
+		{
+			"@article {111, key = bar }",
 			asts.WithBibType("article"),
 			asts.WithBibKeys("111"),
-			asts.WithBibTags("key", asts.Ident("bar"))},
-		{"@article {111, key = bar },", // trailing comma
+			asts.WithBibTags("key", asts.Ident("bar")),
+		},
+		{
+			"@article {111, key = bar },", // trailing comma
 			asts.WithBibType("article"),
 			asts.WithBibKeys("111"),
-			asts.WithBibTags("key", asts.Ident("bar"))},
-		{"@article {111, key = bar, extra }",
+			asts.WithBibTags("key", asts.Ident("bar")),
+		},
+		{
+			"@article {111, key = bar, extra }",
 			asts.WithBibType("article"),
 			asts.WithBibKeys("111", "extra"),
-			asts.WithBibTags("key", asts.Ident("bar"))},
-		{`@inproceedings {111, key = bar, a, b, k2 = "v2" }`,
+			asts.WithBibTags("key", asts.Ident("bar")),
+		},
+		{
+			`@inproceedings {111, key = bar, a, b, k2 = "v2" }`,
 			asts.WithBibType("inproceedings"),
 			asts.WithBibKeys("111", "a", "b"),
-			asts.WithBibTags("key", asts.Ident("bar"), "k2", asts.UnparsedText("v2"))},
+			asts.WithBibTags("key", asts.Ident("bar"), "k2", asts.UnparsedText("v2")),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
@@ -192,52 +206,61 @@ func TestParseFile_BibDecl_ModeParseStrings(t *testing.T) {
 			name:   "article cite key and key",
 			src:    "@article { cite_key, key = {foo} }",
 			keysFn: asts.WithBibKeys("cite_key"),
-			tagsFn: asts.WithBibTags("key", asts.BraceText(0, "foo"))},
+			tagsFn: asts.WithBibTags("key", asts.BraceText(0, "foo")),
+		},
 		{
 			name:   "article key with nested braces",
 			src:    "@article { cite_key, key = {{f}oo}}",
 			keysFn: asts.WithBibKeys("cite_key"),
-			tagsFn: asts.WithBibTags("key", asts.BraceText(0, "{f}", "oo"))},
+			tagsFn: asts.WithBibTags("key", asts.BraceText(0, "{f}", "oo")),
+		},
 		{
 			name:   "article key with textsc",
 			src:    `@article { cite_key, key = {{\textsc f}oo}}`,
 			keysFn: asts.WithBibKeys("cite_key"),
-			tagsFn: asts.WithBibTags("key", asts.BraceText(0, `{\textsc f}`, "oo"))},
+			tagsFn: asts.WithBibTags("key", asts.BraceText(0, `{\textsc f}`, "oo")),
+		},
 		{
 			name:   "article key with plain double quotes",
 			src:    `@article { cite_key, key = "foo" }`,
 			keysFn: asts.WithBibKeys("cite_key"),
-			tagsFn: asts.WithBibTags("key", asts.QuotedText(0, "foo"))},
+			tagsFn: asts.WithBibTags("key", asts.QuotedText(0, "foo")),
+		},
 		{
 			name:   "article key with newlines",
 			src:    "@article { cite_key, key = {f\no\ro} }",
 			keysFn: asts.WithBibKeys("cite_key"),
-			tagsFn: asts.WithBibTags("key", asts.BraceText(0, "f", " ", "o", " ", "o"))},
+			tagsFn: asts.WithBibTags("key", asts.BraceText(0, "f", " ", "o", " ", "o")),
+		},
 		{
 			name:   "article howPublished url macro",
 			src:    `@article{cite_key, howPublished = "\url{http://example.com/foo--bar/~baz/#}" }`,
 			keysFn: asts.WithBibKeys("cite_key"),
 			tagsFn: asts.WithBibTags("howPublished",
-				asts.QuotedTextExpr(0, asts.Macro("url", "http://example.com/foo--bar/~baz/#")))},
+				asts.QuotedTextExpr(0, asts.Macro("url", "http://example.com/foo--bar/~baz/#"))),
+		},
 		{
 			name:   "article url macro",
 			src:    `@article{cite_key, url = "\url{http://foo.com/bar~qux-baz/#}" }`,
 			keysFn: asts.WithBibKeys("cite_key"),
 			tagsFn: asts.WithBibTags("url",
-				asts.QuotedTextExpr(0, asts.Macro("url", "http://foo.com/bar~qux-baz/#")))},
+				asts.QuotedTextExpr(0, asts.Macro("url", "http://foo.com/bar~qux-baz/#"))),
+		},
 		{
 			name:   "article href macro",
 			src:    `@article { cite_key, title = {\href{https://nyt.com/}{Dollar \$140}} }`,
 			keysFn: asts.WithBibKeys("cite_key"),
 			tagsFn: asts.WithBibTags("title",
 				asts.BraceText(0, asts.Macro("href", "https://nyt.com/"),
-					asts.BraceText(1, "Dollar", " ", asts.Escaped('$'), "140")))},
+					asts.BraceText(1, "Dollar", " ", asts.Escaped('$'), "140"))),
+		},
 		{
 			name:   "article title escaped ampersand",
 			src:    `@article { cite_key, title = {foo \& bar} }`,
 			keysFn: asts.WithBibKeys("cite_key"),
 			tagsFn: asts.WithBibTags("title",
-				asts.BraceText(0, `foo`, ` `, asts.Escaped('&'), ` `, `bar`))},
+				asts.BraceText(0, `foo`, ` `, asts.Escaped('&'), ` `, `bar`)),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

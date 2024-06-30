@@ -40,14 +40,14 @@ func (s *Scope) Insert(obj *Object) (alt *Object) {
 // Debugging support
 func (s *Scope) String() string {
 	var buf bytes.Buffer
-	fmt.Fprintf(&buf, "scope %p {", s)
+	_, _ = fmt.Fprintf(&buf, "scope %p {", s)
 	if s != nil && len(s.Objects) > 0 {
-		fmt.Fprintln(&buf)
+		_, _ = fmt.Fprintln(&buf)
 		for _, obj := range s.Objects {
-			fmt.Fprintf(&buf, "\t%s %s\n", obj.Kind, obj.Name)
+			_, _ = fmt.Fprintf(&buf, "\t%s %s\n", obj.Kind, obj.Name)
 		}
 	}
-	fmt.Fprintf(&buf, "}\n")
+	_, _ = fmt.Fprintf(&buf, "}\n")
 	return buf.String()
 }
 
@@ -62,7 +62,6 @@ func (s *Scope) String() string {
 //	Kind    Data type         Data value
 //	Pkg     *Scope            package scope
 //	Con     int               iota for the respective declaration
-//
 type Object struct {
 	Kind ObjKind
 	Name string      // declared name
