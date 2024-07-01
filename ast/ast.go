@@ -78,7 +78,7 @@ func (k NodeKind) String() string {
 	return kindNames[k]
 }
 
-// Expr is marker for all expression nodes.
+// Expr is a marker for all expression nodes.
 type Expr interface {
 	Node
 	exprNode()
@@ -178,8 +178,8 @@ type (
 		Suffix   Expr // often called the 'jr' part
 	}
 
-	// An UnparsedText is a bibtex string as it appears in source. Only appears
-	// when Mode.ParseStrings == 0 is passed to ParseFile.
+	// An UnparsedText is a bibtex string as it appears in the source. Only
+	// appears when Mode.ParseStrings == 0 is passed to ParseFile.
 	UnparsedText struct {
 		ValuePos gotok.Pos   // literal position
 		Type     token.Token // token.String or token.BraceString
@@ -208,8 +208,8 @@ type (
 		Value    Expr      // the text to accent
 	}
 
-	// A TextComma node is a string of exactly 1 comma. Useful because a comma has
-	// semantic meaning for parsing authors as a separator for names.
+	// A TextComma node is a string of exactly one comma. Useful because a comma
+	// has semantic meaning for parsing authors as a separator for names.
 	TextComma struct {
 		ValuePos gotok.Pos // literal position
 	}
@@ -224,7 +224,7 @@ type (
 	}
 
 	// A TextHyphen node is a string of exactly 1 hyphen (-). Hyphens are
-	// important in some cases of parsing author names so keep it as a separate
+	// important in some cases of parsing author names, so keep it as a separate
 	// node.
 	TextHyphen struct {
 		ValuePos gotok.Pos // literal position
@@ -320,7 +320,7 @@ func (x *Author) IsEmpty() bool {
 }
 
 // IsOthers returns true if this author was created from the "and others"
-// suffix in from authors field.
+// suffix in from authors.
 func (x *Author) IsOthers() bool {
 	if s, ok := x.First.(*Text); !ok || s.Value != "" {
 		return false
@@ -414,22 +414,22 @@ func (*ConcatExpr) exprNode()        {}
 // ----------------------------------------------------------------------------
 // Statements
 
-// An statement is represented by a tree consisting of one or more of the
+// A statement is represented by a tree consisting of one or more of the
 // following concrete statement nodes.
 type (
 	// A BadStmt node is a placeholder for statements containing syntax errors
 	// for which no correct statement nodes can be created.
 	BadStmt struct {
-		From, To gotok.Pos // position range of bad statement
+		From, To gotok.Pos // position range of the bad statement
 	}
 
-	// An TagStmt node represents a tag in an BibDecl or AbbrevDecl, i.e.
+	// An TagStmt node represents a tag in a BibDecl or AbbrevDecl, i.e.
 	// author = "foo".
 	TagStmt struct {
 		Doc     *TexCommentGroup // associated documentation; or nil
 		NamePos gotok.Pos        // identifier position
 		Name    string           // identifier name, normalized with lowercase
-		RawName string           // identifier name as it appeared in source
+		RawName string           // identifier name as it appeared in the source
 		Value   Expr             // denoted expression
 	}
 )
@@ -447,7 +447,7 @@ func (*TagStmt) stmtNode()        {}
 // ----------------------------------------------------------------------------
 // Declarations
 
-// An declaration is represented by one of the following declaration nodes.
+// A declaration is represented by one of the following declaration nodes.
 type (
 	// A BadDecl node is a placeholder for declarations containing syntax errors
 	// for which no correct declaration nodes can be created.

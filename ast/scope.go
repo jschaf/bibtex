@@ -57,7 +57,7 @@ func (s *Scope) String() string {
 // An Object describes a named language entity such as a bibtex entry, or string
 // abbreviation.
 //
-// The Data fields contains object-specific data:
+// The Data fields contain object-specific data:
 //
 //	Kind    Data type         Data value
 //	Pkg     *Scope            package scope

@@ -123,7 +123,7 @@ func TestScanner_Scan(t *testing.T) {
 	fset := gotok.NewFileSet()
 	s.Init(fset.AddFile("", fset.Base(), len(source)), source, eh, ScanComments)
 
-	// set up expected position
+	// set up the expected position
 	epos := gotok.Position{
 		Filename: "",
 		Offset:   0,
@@ -270,7 +270,7 @@ func tok(s string) stringTok {
 }
 
 // toks returns a slice of stringTok by converting each string t into a
-// a stringTok via the tok function.
+// stringTok via the tok function.
 func toks(t ...string) []stringTok {
 	ts := make([]stringTok, len(t))
 	for i := 0; i < len(t); i++ {
@@ -347,7 +347,7 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 			var s Scanner
 			s.Init(fset.AddFile("", fset.Base(), len(tt.lit)), []byte(tt.lit), ec.asHandler(), ScanStrings)
 
-			// set up expected position
+			// set up the expected position
 			epos := gotok.Position{
 				Filename: "",
 				Offset:   0,
@@ -363,7 +363,8 @@ func TestScanner_Scan_scanInString(t *testing.T) {
 				pos := fset.Position(p)
 				checkPosFilename(t, pos, epos, lit)
 				checkPosOffset(t, pos, epos, lit)
-				// skip column check because no easy way to figure out expected column
+				// Skip column check because there's no easy way to figure out
+				// the expected column.
 				checkPosLine(t, pos, epos, lit)
 				checkPosToken(t, tok, eTok.t, lit)
 

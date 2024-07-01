@@ -84,8 +84,8 @@ func TestNew_resolve(t *testing.T) {
 		},
 		{
 			name: "article with url",
-			src:  `@article{cite_key, url = "http://example.com/foo--bar/~baz/#" }`,
-			want: Entry{Type: EntryArticle, Key: "cite_key", Tags: map[Field]ast.Expr{"url": asts.Text("http://example.com/foo--bar/~baz/#")}},
+			src:  `@article{cite_key, url = "https://example.com/foo--bar/~baz/#" }`,
+			want: Entry{Type: EntryArticle, Key: "cite_key", Tags: map[Field]ast.Expr{"url": asts.Text("https://example.com/foo--bar/~baz/#")}},
 		},
 	}
 	for _, tt := range tests {

@@ -256,17 +256,17 @@ func TestParseFile_BibDecl_ModeParseStrings(t *testing.T) {
 		},
 		{
 			name:   "article howPublished url macro",
-			src:    `@article{cite_key, howPublished = "\url{http://example.com/foo--bar/~baz/#}" }`,
+			src:    `@article{cite_key, howPublished = "\url{https://example.com/foo--bar/~baz/#}" }`,
 			keysFn: asts.WithBibKeys("cite_key"),
 			tagsFn: asts.WithBibTags("howPublished",
-				asts.QuotedTextExpr(0, asts.Macro("url", "http://example.com/foo--bar/~baz/#"))),
+				asts.QuotedTextExpr(0, asts.Macro("url", "https://example.com/foo--bar/~baz/#"))),
 		},
 		{
 			name:   "article url macro",
-			src:    `@article{cite_key, url = "\url{http://foo.com/bar~qux-baz/#}" }`,
+			src:    `@article{cite_key, url = "\url{https://foo.com/bar~qux-baz/#}" }`,
 			keysFn: asts.WithBibKeys("cite_key"),
 			tagsFn: asts.WithBibTags("url",
-				asts.QuotedTextExpr(0, asts.Macro("url", "http://foo.com/bar~qux-baz/#"))),
+				asts.QuotedTextExpr(0, asts.Macro("url", "https://foo.com/bar~qux-baz/#"))),
 		},
 		{
 			name:   "article href macro",

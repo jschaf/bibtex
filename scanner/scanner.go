@@ -1,5 +1,5 @@
 // Package scanner implements a scanner for bibtex source text.
-// It takes a []byte as source which can then be tokenized
+// It takes a []byte as a source which can then be tokenized
 // through repeated calls to the Scan method.
 package scanner
 
@@ -89,7 +89,7 @@ func (s *Scanner) error(offs int, msg string) {
 	s.ErrorCount++
 }
 
-const bom = 0xFEFF // byte order mark, only permitted as very first character
+const bom = 0xFEFF // byte order mark, only permitted as the first character
 
 // peek returns the byte following the most recently read character without
 // advancing the scanner. If the scanner is at EOF, peek returns 0.
@@ -111,7 +111,7 @@ const (
 
 // Init prepares the scanner s to tokenize the text src by setting the
 // scanner at the beginning of src. The scanner uses the file set file
-// for position information and it adds line information for each line.
+// for position information, and it adds line information for each line.
 // It is ok to re-use the same file when re-scanning the same file as
 // line information which is already present is ignored. Init causes a
 // panic if the file size does not match the src size.
@@ -142,7 +142,7 @@ func (s *Scanner) Init(file *gotok.File, src []byte, err ErrorHandler, mode Mode
 
 	s.next()
 	if s.ch == bom {
-		s.next() // ignore BOM at file beginning
+		s.next() // ignore BOM at the file beginning
 	}
 }
 
@@ -156,7 +156,7 @@ func (s *Scanner) skipWhitespace() {
 	}
 }
 
-func lower(ch rune) rune     { return ('a' - 'A') | ch } // returns lower-case ch iff ch is ASCII letter
+func lower(ch rune) rune     { return ('a' - 'A') | ch } // returns lower-case ch if ch is an ASCII letter
 func isDecimal(ch rune) bool { return '0' <= ch && ch <= '9' }
 
 func isLetter(ch rune) bool {
@@ -217,7 +217,7 @@ func (s *Scanner) scanIdent() string {
 	return string(s.src[offs:s.offset])
 }
 
-// scanString parses an bibtex string delimited by double quotes.
+// scanString parses a bibtex string delimited by double quotes.
 func (s *Scanner) scanString() string {
 	offs := s.offset
 
@@ -246,7 +246,7 @@ func (s *Scanner) scanNumber() string {
 	return string(s.src[offs:s.offset])
 }
 
-// scanBraceString parses an bibtex string delimited by braces.
+// scanBraceString parses a bibtex string delimited by braces.
 func (s *Scanner) scanBraceString() string {
 	offs := s.offset
 
@@ -351,7 +351,7 @@ func (s *Scanner) scanSpecialCharStringAccent() (token.Token, string) {
 			s.errorf(offs, "expected right brace after accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
 			return token.Illegal, ""
 		}
-		s.next() // consume right brace '}'
+		s.next() // consume right brace
 	} else {
 		if !IsAsciiLetter(s.ch) {
 			s.errorf(offs, "expected ascii letter after accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
@@ -458,7 +458,7 @@ func (s *Scanner) scanInString() (pos gotok.Pos, tok token.Token, lit string) {
 // if a syntax error was encountered. Thus, even if the resulting token sequence
 // contains no illegal tokens, a client may not assume that no error has
 // occurred. Instead, the client must check the scanner's ErrorCount or the
-// number of calls of the error handler, if there was one installed.
+// number of error handler calls if there was one installed.
 //
 // Scan adds line information to the file with Init. Token positions are
 // relative to the file.
@@ -498,12 +498,12 @@ func (s *Scanner) Scan() (pos gotok.Pos, tok token.Token, lit string) {
 			tok = token.Assign
 		case '@':
 			lit = s.scanCommand()
-			switch cmd := strings.ToLower(lit); cmd {
-			case "@comment":
+			switch {
+			case strings.EqualFold("@comment", lit):
 				tok = token.Comment
-			case "@string":
+			case strings.EqualFold("@string", lit):
 				tok = token.Abbrev
-			case "@preamble":
+			case strings.EqualFold("@preamble", lit):
 				tok = token.Preamble
 			default:
 				tok = token.BibEntry
