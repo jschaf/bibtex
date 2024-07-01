@@ -307,8 +307,7 @@ func (s *Scanner) scanStringEscape() (token.Token, string) {
 		// a single non-alphabetical character
 		s.next()
 		return token.StringBackslash, string(s.src[offs:s.offset])
-	case '\'', '~', '.', '^', '=', '`':
-		s.next()
+	case '\'', '~', '.', '^', '=', '`', '"':
 		return s.scanSpecialCharStringAccent()
 	case ',', ';', '[', ']', '(', ')':
 		// any single non-alphabetical character can be macro.
@@ -340,31 +339,25 @@ func (s *Scanner) scanStringEscape() (token.Token, string) {
 // followed by a special char like \'o, \'{o} or \^{o}.
 func (s *Scanner) scanSpecialCharStringAccent() (token.Token, string) {
 	offs := s.offset - 1 // initial backslash already consumed
-
-	s.next() // consume special char
-	s.next() // consume brace or letter
+	s.next()             // consume accent marker, like '"' or '^'
 	if s.ch == '{' {
-		s.next() // consume letter that's accented
+		s.next() // consume left brace '{'
 		if !IsAsciiLetter(s.ch) {
-			s.errorf(offs, "expected ascii letter after accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
+			s.errorf(offs, "expected braced ascii letter after accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
 			return token.Illegal, ""
 		}
-		s.next() // consume right brace '}'
+		s.next() // consume the letter that's accented
 		if s.ch != '}' {
 			s.errorf(offs, "expected right brace after accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
 			return token.Illegal, ""
 		}
+		s.next() // consume right brace '}'
 	} else {
-		// unbraced accent like \^o
-		s.next()
 		if !IsAsciiLetter(s.ch) {
 			s.errorf(offs, "expected ascii letter after accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
 			return token.Illegal, ""
 		}
-	}
-	if s.next(); s.ch != '}' {
-		s.errorf(offs, "expected right brace to close accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
-		return token.Illegal, ""
+		s.next() // consume the letter that's accented
 	}
 	return token.StringAccent, string(s.src[offs:s.offset])
 }

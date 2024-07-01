@@ -467,6 +467,8 @@ func (p *parser) parseText(depth int) (txt ast.Expr) {
 			Values: values,
 			Closer: p.pos,
 		}
+	case token.StringAccent:
+		return p.parseStringAccent()
 	default:
 		p.error(p.pos, "unknown text type: "+p.tok.String())
 	}
@@ -624,6 +626,31 @@ func (p *parser) parseTagStmt() *ast.TagStmt {
 		Name:    strings.ToLower(key.Name),
 		RawName: key.Name,
 		Value:   val,
+	}
+}
+
+func (p *parser) parseStringAccent() ast.Expr {
+	lit := p.lit
+	p.next()
+	if len(lit) <= 2 {
+		p.error(p.pos, "invalid accent string")
+		return &ast.BadExpr{From: p.pos, To: p.pos}
+	}
+	if lit[0] != '\\' {
+		p.error(p.pos, "invalid accent string (missing leading '\\')")
+		return &ast.BadExpr{From: p.pos, To: p.pos}
+	}
+	value := lit[2:]
+	if value[0] == '{' && value[len(value)-1] == '}' {
+		value = value[1 : len(value)-1]
+	}
+	return &ast.TextAccent{
+		ValuePos: p.pos,
+		Accent:   string(lit[1]),
+		Value: &ast.Text{
+			ValuePos: p.pos + 2,
+			Value:    value,
+		},
 	}
 }
 

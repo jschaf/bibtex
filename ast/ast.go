@@ -201,6 +201,13 @@ type (
 		Value    string
 	}
 
+	// A TextAccent node is a string of text with an accent character.
+	TextAccent struct {
+		ValuePos gotok.Pos // literal position
+		Accent   string    // the accent character, like '"'
+		Value    Expr      // the text to accent
+	}
+
 	// A TextComma node is a string of exactly 1 comma. Useful because a comma has
 	// semantic meaning for parsing authors as a separator for names.
 	TextComma struct {
@@ -350,6 +357,11 @@ func (x *Text) Pos() gotok.Pos { return x.ValuePos }
 func (x *Text) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(x.Value)) }
 func (x *Text) Kind() NodeKind { return KindText }
 func (*Text) exprNode()        {}
+
+func (x *TextAccent) Pos() gotok.Pos { return x.ValuePos }
+func (x *TextAccent) End() gotok.Pos { return x.Value.End() }
+func (x *TextAccent) Kind() NodeKind { return KindText }
+func (*TextAccent) exprNode()        {}
 
 func (x *TextComma) Pos() gotok.Pos { return x.ValuePos }
 func (x *TextComma) End() gotok.Pos { return gotok.Pos(int(x.ValuePos) + len(",")) }

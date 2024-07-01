@@ -121,6 +121,13 @@ func QuotedText(depth int, ss ...string) *ast.ParsedText {
 	return QuotedTextExpr(depth, xs...)
 }
 
+func AccentedText(accent string, s string) *ast.TextAccent {
+	return &ast.TextAccent{
+		Accent: accent,
+		Value:  Text(s),
+	}
+}
+
 func Text(s string) *ast.Text {
 	return &ast.Text{Value: s}
 }
@@ -197,6 +204,8 @@ func ExprString(x ast.Expr) string {
 		return `\` + v.Value
 	case *ast.Text:
 		return fmt.Sprintf("%q", v.Value)
+	case *ast.TextAccent:
+		return "TextAccent(" + v.Accent + ", " + ExprString(v.Value) + ")"
 
 	case *ast.ParsedText:
 		sb := strings.Builder{}
