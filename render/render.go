@@ -3,6 +3,9 @@ package render
 import (
 	"fmt"
 	"io"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/jschaf/bibtex/ast"
 )
@@ -211,8 +214,8 @@ func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
 	switch t := x.(type) {
 	case *ast.ParsedText:
 		for _, v := range t.Values {
-			if err := p.Render(w, v); err != nil {
-				return err
+			if mErr = p.Render(w, v); mErr != nil {
+				return
 			}
 		}
 	case *ast.ConcatExpr:
@@ -240,18 +243,137 @@ func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
 		_, mErr = w.Write([]byte("-"))
 	case *ast.TextMath:
 		if _, mErr = w.Write([]byte("$")); mErr != nil {
-			return mErr
+			return
 		}
 		if _, mErr = w.Write([]byte(t.Value)); mErr != nil {
-			return mErr
+			return
 		}
-		if _, mErr = w.Write([]byte("$")); mErr != nil {
-			return mErr
-		}
+		_, mErr = w.Write([]byte("$"))
 	case *ast.TextNBSP, *ast.TextSpace:
 		_, mErr = w.Write([]byte(" "))
+	case *ast.TextAccent:
+		var (
+			accent       accentType
+			accentedRune rune
+		)
+		if accent, mErr = newAccentType(t.Accent); mErr != nil {
+			return
+		}
+		text := t.Value.(*ast.Text).Value
+		if utf8.RuneCountInString(text) != 1 {
+			return fmt.Errorf("renderer - accent text must be a single character")
+		}
+		r, _ := utf8.DecodeRuneInString(text)
+		if accentedRune, mErr = fmtAccent(r, accent); mErr != nil {
+			return
+		}
+		_, mErr = w.Write([]byte(string(accentedRune)))
 	default:
-		return fmt.Errorf("renderer - unhandled ast.Expr type %T, %v", t, t)
+		mErr = fmt.Errorf("renderer - unhandled ast.Expr type %T, %v", t, t)
 	}
-	return nil
+	return
+}
+
+// accentType represents the different LaTeX accents
+type accentType string
+
+const (
+	Grave      accentType = "grave"      // \`
+	Acute      accentType = "acute"      // \'
+	Circumflex accentType = "circumflex" // \^
+	Umlaut     accentType = "umlaut"     // \"
+	Tilde      accentType = "tilde"      // \~
+	Cedilla    accentType = "cedilla"    // \c
+	Dot        accentType = "dot"        // \.
+)
+
+// NewAccentType converts a string representation to an AccentType
+// It returns the AccentType and an error if the input is invalid
+func newAccentType(accentStr string) (accentType, error) {
+	// Normalize the input string to lowercase
+	accentStr = strings.ToLower(strings.TrimSpace(accentStr))
+
+	// Map of string representations to AccentType
+	accentMap := map[string]accentType{
+		// LaTeX command mappings
+		"`":  Grave,
+		"'":  Acute,
+		"^":  Circumflex,
+		"\"": Umlaut,
+		"~":  Tilde,
+		"c":  Cedilla,
+		".":  Dot,
+	}
+
+	// Look up the accent type
+	if accentType, exists := accentMap[accentStr]; exists {
+		return accentType, nil
+	}
+
+	// Generate a helpful error message with available options
+	availableAccents := make([]string, 0, len(accentMap))
+	for k := range accentMap {
+		// Exclude LaTeX command symbols to avoid cluttering the error message
+		if len(k) > 1 {
+			availableAccents = append(availableAccents, k)
+		}
+	}
+
+	return "", fmt.Errorf("invalid accent type. Available accent types are: %v",
+		strings.Join(availableAccents, ", "))
+}
+
+// ConvertLatexAccent converts a base character with a LaTeX accent to its UTF-8 equivalent
+func fmtAccent(baseChar rune, accent accentType) (rune, error) {
+	// Normalize the base character to lowercase for consistent mapping
+	baseChar = unicode.ToLower(baseChar)
+
+	// Mapping of base characters to their accented versions
+	accentMap := map[accentType]map[rune]rune{
+		Grave: {
+			'a': 'à', 'e': 'è', 'i': 'ì', 'o': 'ò', 'u': 'ù',
+			'A': 'À', 'E': 'È', 'I': 'Ì', 'O': 'Ò', 'U': 'Ù',
+		},
+		Acute: {
+			'a': 'á', 'e': 'é', 'i': 'í', 'o': 'ó', 'u': 'ú', 'y': 'ý',
+			'A': 'Á', 'E': 'É', 'I': 'Í', 'O': 'Ó', 'U': 'Ú', 'Y': 'Ý',
+		},
+		Circumflex: {
+			'a': 'â', 'e': 'ê', 'i': 'î', 'o': 'ô', 'u': 'û',
+			'A': 'Â', 'E': 'Ê', 'I': 'Î', 'O': 'Ô', 'U': 'Û',
+		},
+		Umlaut: {
+			'a': 'ä', 'e': 'ë', 'i': 'ï', 'o': 'ö', 'u': 'ü',
+			'A': 'Ä', 'E': 'Ë', 'I': 'Ï', 'O': 'Ö', 'U': 'Ü',
+		},
+		Tilde: {
+			'a': 'ã', 'n': 'ñ', 'o': 'õ',
+			'A': 'Ã', 'N': 'Ñ', 'O': 'Õ',
+		},
+		Cedilla: {
+			'c': 'ç',
+			'C': 'Ç',
+		},
+		Dot: {
+			'c': 'ċ', 'e': 'ė', 'g': 'ġ', 'i': 'ı', 'z': 'ż',
+			'C': 'Ċ', 'E': 'Ė', 'G': 'Ġ', 'I': 'İ', 'Z': 'Ż',
+		},
+	}
+
+	// Check if the accent exists for the given base character
+	if accentedChars, exists := accentMap[accent]; exists {
+		if accented, valid := accentedChars[baseChar]; valid {
+			return accented, nil
+		}
+	}
+
+	// Generate a helpful error message
+	availableChars := []rune{}
+	for char := range accentMap[accent] {
+		availableChars = append(availableChars, char)
+	}
+
+	return 0, fmt.Errorf("invalid combination: cannot apply %s accent to character '%c'. "+
+		"Available characters for this accent are: %v",
+		accent, baseChar, string(availableChars))
 }
