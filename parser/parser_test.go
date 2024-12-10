@@ -168,6 +168,12 @@ func TestParseFile_BibDecl_NoParseStrings(t *testing.T) {
 			asts.WithBibKeys("111", "a", "b"),
 			asts.WithBibTags("key", asts.Ident("bar"), "k2", asts.UnparsedText("v2")),
 		},
+		{
+			"@InProceedings {cite_key1, key = {foo} }",
+			asts.WithBibType("inproceedings"),
+			asts.WithBibKeys("cite_key1"),
+			asts.WithBibTags("key", asts.UnparsedBraceText("foo")),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.src, func(t *testing.T) {
