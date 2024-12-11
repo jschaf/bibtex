@@ -741,7 +741,7 @@ func (p *parser) parseBibDecl() *ast.BibDecl {
 		defer un(trace(p, "BibDecl"))
 	}
 	doc := p.leadComment
-	entryType := p.lit[1:] // drop '@', e.g. "@book" -> "book"
+	entryType := strings.ToLower(p.lit[1:]) // drop '@', e.g. "@BOOK" -> "book"
 	pos := p.expect(token.BibEntry)
 	var bibKey *ast.Ident // use first key found as bibKey
 	var extraKeys []*ast.Ident
