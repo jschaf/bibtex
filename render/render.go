@@ -212,22 +212,22 @@ func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
 	switch t := x.(type) {
 	case *ast.ParsedText:
 		for _, v := range t.Values {
-			if mErr = p.Render(w, v); mErr != nil {
-				return
+			if err := p.Render(w, v); err != nil {
+				return err
 			}
 		}
 	case *ast.ConcatExpr:
-		if mErr = p.Render(w, t.X); mErr != nil {
-			return
+		if err := p.Render(w, t.X); err != nil {
+			return err
 		}
 		_, _ = w.Write([]byte{'#'})
-		if mErr = p.Render(w, t.Y); mErr != nil {
-			return
+		if err := p.Render(w, t.Y); err != nil {
+			return err
 		}
 	case *ast.TextMacro:
 		for _, v := range t.Values {
-			if mErr = p.Render(w, v); mErr != nil {
-				return
+			if err := p.Render(w, v); err != nil {
+				return err
 			}
 		}
 		// TODO: add overrides and TextMacro
@@ -240,22 +240,19 @@ func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
 	case *ast.TextHyphen:
 		_, mErr = w.Write([]byte("-"))
 	case *ast.TextMath:
-		if _, mErr = w.Write([]byte("$")); mErr != nil {
-			return
+		if _, err := w.Write([]byte("$")); err != nil {
+			return err
 		}
-		if _, mErr = w.Write([]byte(t.Value)); mErr != nil {
-			return
+		if _, err := w.Write([]byte(t.Value)); err != nil {
+			return err
 		}
 		_, mErr = w.Write([]byte("$"))
 	case *ast.TextNBSP, *ast.TextSpace:
 		_, mErr = w.Write([]byte(" "))
 	case *ast.TextAccent:
-		var (
-			accent       AccentType
-			accentedRune rune
-		)
-		if accent, mErr = NewAccentType(t.Accent); mErr != nil {
-			return
+		accent, err := NewAccentType(t.Accent)
+		if err != nil {
+			return err
 		}
 		text := t.Value.(*ast.Text).Value
 		r, width := utf8.DecodeRuneInString(text)
@@ -266,15 +263,14 @@ func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
 			return fmt.Errorf("invalid UTF-8 encoding in accented text")
 		}
 		var remainingText = text[width:]
-		if accentedRune, mErr = FmtAccent(r, accent); mErr != nil {
-			return
+		accentedRune, err := FmtAccent(r, accent)
+		if err != nil {
+			return err
 		}
-		if _, mErr = w.Write([]byte(string(accentedRune))); mErr != nil {
-			return
+		if _, err := w.Write([]byte(string(accentedRune))); err != nil {
+			return err
 		}
-		if _, mErr = w.Write([]byte(remainingText)); mErr != nil {
-			return
-		}
+		_, mErr = w.Write([]byte(remainingText))
 
 	default:
 		mErr = fmt.Errorf("renderer - unhandled ast.Expr type %T, %v", t, t)
