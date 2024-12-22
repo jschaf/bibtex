@@ -62,6 +62,11 @@ func TestRenderParsedTextResolver_Resolve(t *testing.T) {
 			node: asts.BraceText(0, asts.AccentedText("`", "e")),
 			want: asts.Text("è"),
 		},
+		{
+			name: "accented character",
+			node: asts.BraceText(0, asts.AccentedText("^", "Al")),
+			want: asts.Text("Âl"),
+		},
 	}
 
 	for _, tt := range tests {

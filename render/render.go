@@ -258,14 +258,24 @@ func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
 			return
 		}
 		text := t.Value.(*ast.Text).Value
-		if utf8.RuneCountInString(text) != 1 {
-			return fmt.Errorf("renderer - accent text must be a single character")
+		r, width := utf8.DecodeRuneInString(text)
+		if r == utf8.RuneError {
+			if width == 0 {
+				return fmt.Errorf("empty accented text")
+			}
+			return fmt.Errorf("invalid UTF-8 encoding in accented text")
 		}
-		r, _ := utf8.DecodeRuneInString(text)
+		var remainingText = text[width:]
 		if accentedRune, mErr = FmtAccent(r, accent); mErr != nil {
 			return
 		}
-		_, mErr = w.Write([]byte(string(accentedRune)))
+		if _, mErr = w.Write([]byte(string(accentedRune))); mErr != nil {
+			return
+		}
+		if _, mErr = w.Write([]byte(remainingText)); mErr != nil {
+			return
+		}
+
 	default:
 		mErr = fmt.Errorf("renderer - unhandled ast.Expr type %T, %v", t, t)
 	}

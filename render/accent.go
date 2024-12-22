@@ -3,7 +3,6 @@ package render
 import (
 	"fmt"
 	"strings"
-	"unicode"
 )
 
 // AccentType represents the different LaTeX accents
@@ -85,9 +84,6 @@ var accentMap = map[string]rune{
 
 // ConvertLatexAccent converts a base character with a LaTeX accent to its UTF-8 equivalent
 func FmtAccent(baseChar rune, accent AccentType) (rune, error) {
-	// Normalize the base character to lowercase for consistent mapping
-	baseChar = unicode.ToLower(baseChar)
-
 	mapKey := string(accent) + string(baseChar)
 
 	accentedChar, exists := accentMap[mapKey]
