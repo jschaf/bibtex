@@ -63,7 +63,7 @@ func TestRenderParsedTextResolver_Resolve(t *testing.T) {
 			want: asts.Text("è"),
 		},
 		{
-			name: "accented character",
+			name: "accented character, caps and multi-rune",
 			node: asts.BraceText(0, asts.AccentedText("^", "Al")),
 			want: asts.Text("Âl"),
 		},
