@@ -121,10 +121,10 @@ func QuotedText(depth int, ss ...string) *ast.ParsedText {
 	return QuotedTextExpr(depth, xs...)
 }
 
-func AccentedText(accent string, s string) *ast.TextAccent {
+func AccentedText(accent token.Accent, s string) *ast.TextAccent {
 	return &ast.TextAccent{
 		Accent: accent,
-		Value:  Text(s),
+		Text:   Text(s),
 	}
 }
 
@@ -205,7 +205,7 @@ func ExprString(x ast.Expr) string {
 	case *ast.Text:
 		return fmt.Sprintf("%q", v.Value)
 	case *ast.TextAccent:
-		return "TextAccent(" + v.Accent + ", " + ExprString(v.Value) + ")"
+		return "TextAccent(" + string(v.Accent) + ", " + ExprString(v.Text) + ")"
 
 	case *ast.ParsedText:
 		sb := strings.Builder{}

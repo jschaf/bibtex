@@ -3,10 +3,10 @@ package bibtex
 import (
 	"testing"
 
-	"github.com/jschaf/bibtex/asts"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/asts"
+	"github.com/jschaf/bibtex/token"
 )
 
 func TestSimplifyEscapedTextResolver(t *testing.T) {
@@ -50,12 +50,17 @@ func TestRenderParsedTextResolver_Resolve(t *testing.T) {
 		{
 			name: "escaped ampersand",
 			node: asts.BraceText(0, asts.Escaped('&')),
-			want: asts.BraceText(0, asts.Text("&")),
+			want: asts.Text("&"),
 		},
 		{
 			name: "escaped ampersand in text",
 			node: asts.BraceText(0, asts.BraceText(1, "abc", asts.Escaped('&'), "def")),
-			want: asts.BraceText(0, asts.BraceText(1, "abc", "&", "def")),
+			want: asts.Text("abc&def"),
+		},
+		{
+			name: "accented character",
+			node: asts.BraceText(0, asts.AccentedText(token.AccentGrave, "e")),
+			want: asts.Text("è"),
 		},
 	}
 
@@ -66,14 +71,20 @@ func TestRenderParsedTextResolver_Resolve(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			stmt := &ast.TagStmt{
+				Name:    "name",
+				RawName: "name",
+				Value:   tt.node,
+			}
+
 			r := NewRenderParsedTextResolver()
-			if err := r.Resolve(tt.node); err != nil {
+			if err := r.Resolve(stmt); err != nil {
 				t.Fatal(err)
 			}
 			want := asts.ExprString(tt.want)
-			got := asts.ExprString(tt.node)
+			got := asts.ExprString(stmt.Value)
 			if diff := cmp.Diff(want, got); diff != "" {
-				t.Errorf("SimplifyEscapedTextResolver() mismatch (-want +got):\n%s", diff)
+				t.Errorf("NewRenderParsedTextResolver() mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}

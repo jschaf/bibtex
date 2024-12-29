@@ -61,12 +61,13 @@ func (r *RenderParsedTextResolver) Resolve(root ast.Node) error {
 		if !isEntering {
 			return ast.WalkSkipChildren, nil
 		}
+
 		tag, ok := n.(*ast.TagStmt)
 		if !ok {
 			return ast.WalkContinue, nil
 		}
 
-		switch expr := tag.Value.(type) {
+		switch tag.Value.(type) {
 		case ast.Authors:
 			// Descend into authors and render each author part, like first
 			// name and last name.
@@ -75,15 +76,10 @@ func (r *RenderParsedTextResolver) Resolve(root ast.Node) error {
 		case *ast.ParsedText:
 			sb := &strings.Builder{}
 			sb.Grow(16)
-			if err := r.rend.Render(sb, expr); err != nil {
+			if err := r.rend.Render(sb, tag.Value); err != nil {
 				return ast.WalkStop, fmt.Errorf("render parsed text tag=%q: %w", tag.Name, err)
 			}
 			tag.Value = &ast.Text{Value: sb.String()}
-			for i, val := range expr.Values {
-				if esc, ok := val.(*ast.TextEscaped); ok {
-					expr.Values[i] = &ast.Text{Value: esc.Value}
-				}
-			}
 			return ast.WalkContinue, nil
 
 		default:

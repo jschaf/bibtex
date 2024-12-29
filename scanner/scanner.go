@@ -307,7 +307,13 @@ func (s *Scanner) scanStringEscape() (token.Token, string) {
 		// a single non-alphabetical character
 		s.next()
 		return token.StringBackslash, string(s.src[offs:s.offset])
-	case '\'', '~', '.', '^', '=', '`', '"':
+	case rune(token.AccentAcute),
+		rune(token.AccentCedilla),
+		rune(token.AccentCircumflex),
+		rune(token.AccentDot),
+		rune(token.AccentGrave),
+		rune(token.AccentTilde),
+		rune(token.AccentUmlaut):
 		return s.scanSpecialCharStringAccent()
 	case ',', ';', '[', ']', '(', ')':
 		// any single non-alphabetical character can be macro.
