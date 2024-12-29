@@ -2,11 +2,12 @@
 
 https://pkg.go.dev/github.com/jschaf/bibtex
 
-A parser for [Bibtex][bibtex-wiki] files, a reference formatting language, in Go. I needed a parser for my static site generator and the existing library https://github.com/caltechlibrary/bibtex was difficult to integrate into idiomatic Go.
+A parser for [Bibtex][bibtex-wiki] files, a reference formatting language, in
+Go. I needed a parser for my static site generator.
 
 - Uses a real, recursive descent parser based on the Golang parser to read Bibtex files into an AST.
 - Handles parsing different author formats.
-- Reasonably fast: parses a 30,000 line Bibtex file in 16 ms. 
+- Reasonably fast: parses a 30,000-line Bibtex file in 16 ms. 
 
 ```shell script
 go get github.com/jschaf/bibtex
@@ -118,12 +119,3 @@ func trimBraces(s string) string {
 ```
 
 [bibtex-wiki]: https://en.wikipedia.org/wiki/BibTeX
-
-# Features
-
-- [x] Parse authors.
-- [ ] Resolve string abbreviations.
-- [ ] Resolve [Crossref] references.
-
-[Crossref]: https://tex.stackexchange.com/questions/401138/what-is-the-bibtex-crossref-field-used-for
-
