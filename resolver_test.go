@@ -3,10 +3,10 @@ package bibtex
 import (
 	"testing"
 
-	"github.com/jschaf/bibtex/asts"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/asts"
+	"github.com/jschaf/bibtex/token"
 )
 
 func TestSimplifyEscapedTextResolver(t *testing.T) {
@@ -59,13 +59,8 @@ func TestRenderParsedTextResolver_Resolve(t *testing.T) {
 		},
 		{
 			name: "accented character",
-			node: asts.BraceText(0, asts.AccentedText("`", "e")),
+			node: asts.BraceText(0, asts.AccentedText(token.AccentGrave, "e")),
 			want: asts.Text("è"),
-		},
-		{
-			name: "accented character, caps and multi-rune",
-			node: asts.BraceText(0, asts.AccentedText("^", "Al")),
-			want: asts.Text("Âl"),
 		},
 	}
 

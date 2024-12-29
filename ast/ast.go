@@ -203,9 +203,9 @@ type (
 
 	// A TextAccent node is a string of text with an accent character.
 	TextAccent struct {
-		ValuePos gotok.Pos // literal position
-		Accent   string    // the accent character, like '"'
-		Value    Expr      // the text to accent
+		ValuePos gotok.Pos    // literal position
+		Accent   token.Accent // the accent character, like "^" for circumflex
+		Text     *Text        // the text to accent; must be a single rune
 	}
 
 	// A TextComma node is a string of exactly one comma. Useful because a comma
@@ -359,7 +359,7 @@ func (x *Text) Kind() NodeKind { return KindText }
 func (*Text) exprNode()        {}
 
 func (x *TextAccent) Pos() gotok.Pos { return x.ValuePos }
-func (x *TextAccent) End() gotok.Pos { return x.Value.End() }
+func (x *TextAccent) End() gotok.Pos { return x.Text.End() }
 func (x *TextAccent) Kind() NodeKind { return KindText }
 func (*TextAccent) exprNode()        {}
 

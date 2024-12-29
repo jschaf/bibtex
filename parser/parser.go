@@ -646,8 +646,8 @@ func (p *parser) parseStringAccent() ast.Expr {
 	}
 	return &ast.TextAccent{
 		ValuePos: p.pos,
-		Accent:   string(lit[1]),
-		Value: &ast.Text{
+		Accent:   token.Accent(lit[1]),
+		Text: &ast.Text{
 			ValuePos: p.pos + 2,
 			Value:    value,
 		},

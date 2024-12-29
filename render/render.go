@@ -2,10 +2,8 @@ package render
 
 import (
 	"fmt"
-	"io"
-	"unicode/utf8"
-
 	"github.com/jschaf/bibtex/ast"
+	"io"
 )
 
 type NodeRenderer interface {
@@ -208,7 +206,7 @@ func NewTextRenderer() *TextRenderer {
 	return &TextRenderer{}
 }
 
-func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
+func (p TextRenderer) Render(w io.Writer, x ast.Expr) error {
 	switch t := x.(type) {
 	case *ast.ParsedText:
 		for _, v := range t.Values {
@@ -232,13 +230,25 @@ func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
 		}
 		// TODO: add overrides and TextMacro
 	case *ast.TextComma:
-		_, mErr = w.Write([]byte(","))
+		_, err := w.Write([]byte(","))
+		if err != nil {
+			return err
+		}
 	case *ast.Text:
-		_, mErr = w.Write([]byte(t.Value))
+		_, err := w.Write([]byte(t.Value))
+		if err != nil {
+			return err
+		}
 	case *ast.TextEscaped:
-		_, mErr = w.Write([]byte(t.Value))
+		_, err := w.Write([]byte(t.Value))
+		if err != nil {
+			return err
+		}
 	case *ast.TextHyphen:
-		_, mErr = w.Write([]byte("-"))
+		_, err := w.Write([]byte("-"))
+		if err != nil {
+			return err
+		}
 	case *ast.TextMath:
 		if _, err := w.Write([]byte("$")); err != nil {
 			return err
@@ -246,34 +256,29 @@ func (p TextRenderer) Render(w io.Writer, x ast.Expr) (mErr error) {
 		if _, err := w.Write([]byte(t.Value)); err != nil {
 			return err
 		}
-		_, mErr = w.Write([]byte("$"))
+		_, err := w.Write([]byte("$"))
+		if err != nil {
+			return err
+		}
 	case *ast.TextNBSP, *ast.TextSpace:
-		_, mErr = w.Write([]byte(" "))
+		_, err := w.Write([]byte(" "))
+		if err != nil {
+			return err
+		}
 	case *ast.TextAccent:
-		accent, err := NewAccentType(t.Accent)
+		r, err := fmtAccent(t.Accent, t.Text.Value)
+		if err != nil {
+			return fmt.Errorf("render accent: %w", err)
+		}
+		_, err = w.Write([]byte(string(r)))
 		if err != nil {
 			return err
 		}
-		text := t.Value.(*ast.Text).Value
-		r, width := utf8.DecodeRuneInString(text)
-		if r == utf8.RuneError {
-			if width == 0 {
-				return fmt.Errorf("empty accented text")
-			}
-			return fmt.Errorf("invalid UTF-8 encoding in accented text")
-		}
-		var remainingText = text[width:]
-		accentedRune, err := FmtAccent(r, accent)
-		if err != nil {
-			return err
-		}
-		if _, err := w.Write([]byte(string(accentedRune))); err != nil {
-			return err
-		}
-		_, mErr = w.Write([]byte(remainingText))
-
 	default:
-		mErr = fmt.Errorf("renderer - unhandled ast.Expr type %T, %v", t, t)
+		err := fmt.Errorf("renderer - unhandled ast.Expr type %T, %v", t, t)
+		if err != nil {
+			return err
+		}
 	}
-	return
+	return nil
 }
