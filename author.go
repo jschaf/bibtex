@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/render"
 )
 
 const authorSep = "and"
@@ -140,6 +141,12 @@ func parseDefault(idx int, xs []ast.Expr) string {
 		return "$" + t.Value + "$"
 	case *ast.Text:
 		return t.Value
+	case *ast.TextAccent:
+		r, err := render.RenderAccent(t.Accent, t.Text.Value)
+		if err != nil {
+			panic("cannot render accent")
+		}
+		return string(r)
 	default:
 		panic("unhandled ast.Expr value")
 	}
