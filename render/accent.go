@@ -35,8 +35,8 @@ var accentMap = map[string]rune{
 	".C": 'Ċ', ".E": 'Ė', ".G": 'Ġ', ".I": 'İ', ".Z": 'Ż',
 }
 
-// fmtAccent renders an accented character.
-func fmtAccent(accent token.Accent, text string) (rune, error) {
+// RenderAccent renders an accented character.
+func RenderAccent(accent token.Accent, text string) (rune, error) {
 	if len(text) == 0 {
 		return 0, fmt.Errorf("cannot render accent %q for empty text", accent)
 	}

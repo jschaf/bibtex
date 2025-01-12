@@ -23,6 +23,8 @@ func TestResolveAuthors_single(t *testing.T) {
 		{"{von Beethoven}, Ludwig", newAuthor("Ludwig", "von Beethoven")},
 		{"Jean-Paul Sartre", newAuthor("Jean-Paul", "Sartre")},
 		{"First von Last", newAuthor("First", "von", "Last")},
+		{"First von Last", newAuthor("First", "von", "Last")},
+		{"Beno{\\^i}t de Meg\\`eve", newAuthor("Benoît", "de", "Megève")},
 		{
 			"Charles Louis Xavier Joseph de la Vallee Poussin",
 			newAuthor("Charles Louis Xavier Joseph", "de la", "Vallee Poussin"),

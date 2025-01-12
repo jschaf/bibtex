@@ -7,6 +7,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/jschaf/bibtex/ast"
+	"github.com/jschaf/bibtex/render"
 )
 
 const authorSep = "and"
@@ -82,14 +83,18 @@ const (
 
 func parseFirstName(idx int, xs []ast.Expr) (string, resolveAction) {
 	x := xs[idx]
+	if _, ok := x.(*ast.TextSpace); ok && idx < len(xs)-1 {
+		if t, ok := xs[idx+1].(*ast.Text); ok && !hasUpperPrefix(t.Value) {
+			// lowercase after space means we're out of the first name
+			return "", resolveNextPart
+		}
+	}
+
 	if _, ok := x.(*ast.Text); !ok {
 		return parseDefault(idx, xs), resolveContinue
 	}
 
 	t := x.(*ast.Text)
-	if !hasUpperPrefix(t.Value) {
-		return "", resolveNextPart // lowercase means we're out of the first name
-	}
 
 	return t.Value, resolveContinue
 }
@@ -140,6 +145,12 @@ func parseDefault(idx int, xs []ast.Expr) string {
 		return "$" + t.Value + "$"
 	case *ast.Text:
 		return t.Value
+	case *ast.TextAccent:
+		r, err := render.RenderAccent(t.Accent, t.Text.Value)
+		if err != nil {
+			panic("cannot render accent")
+		}
+		return string(r)
 	default:
 		panic("unhandled ast.Expr value")
 	}

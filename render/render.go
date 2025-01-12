@@ -2,8 +2,9 @@ package render
 
 import (
 	"fmt"
-	"github.com/jschaf/bibtex/ast"
 	"io"
+
+	"github.com/jschaf/bibtex/ast"
 )
 
 type NodeRenderer interface {
@@ -266,7 +267,7 @@ func (p TextRenderer) Render(w io.Writer, x ast.Expr) error {
 			return err
 		}
 	case *ast.TextAccent:
-		r, err := fmtAccent(t.Accent, t.Text.Value)
+		r, err := RenderAccent(t.Accent, t.Text.Value)
 		if err != nil {
 			return fmt.Errorf("render accent: %w", err)
 		}
