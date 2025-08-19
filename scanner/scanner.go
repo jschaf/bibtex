@@ -360,12 +360,15 @@ func (s *Scanner) scanSpecialCharStringAccent() (token.Token, string) {
 		s.next() // consume right brace
 	} else if s.ch == ' ' { // handle implicit braces like '\c c'
 		// Construct accent string e.g. '\c'
-		substring := string(s.src[offs:s.offset])
-		s.next() // consume space
+		tokStr := string(s.src[offs:s.offset])
+		// consume spaces until next valid char (like in {\c   c})
+		for s.ch == ' ' {
+			s.next()
+		}
 		// append accented char, e.g. 'c'
-		substring += string(s.src[s.offset])
+		tokStr += string(s.src[s.offset])
 		s.next() // consume the letter that's accented
-		return token.StringAccent, substring
+		return token.StringAccent, tokStr
 	} else {
 		if !IsAsciiLetter(s.ch) {
 			s.errorf(offs, "expected ascii letter after accent sequence %q , got %q", string(s.src[offs:s.offset-1]), s.ch)
